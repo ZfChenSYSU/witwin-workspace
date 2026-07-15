@@ -1,0 +1,6 @@
+[submodule "src/witwin-core"]
+	path = src/witwin-core
+	url = https://github.com/witwin-ai/witwin-core.git
+[submodule "src/witwin-channel"]
+	path = src/witwin-channel
+	url = https://github.com/witwin-ai/witwin-channel.git

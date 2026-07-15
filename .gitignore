@@ -1,0 +1,19 @@
+# Local Python environment and caches
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated validation output
+logs/
+
+# Host-machine snapshot, research documents, and system workarounds
+workspace/host_snapshot/
+workspace/project-docs/
+workspace/support/
+
+# Local editor and OS metadata
+.vscode/
+.idea/
+.DS_Store
+
