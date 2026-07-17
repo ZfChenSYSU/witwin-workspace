@@ -6,6 +6,7 @@ __pycache__/
 
 # Generated validation output
 logs/
+experiments/**/outputs/run_stdout.json
 
 # Host-machine snapshot, research documents, and system workarounds
 workspace/host_snapshot/
@@ -16,4 +17,3 @@ workspace/support/
 .vscode/
 .idea/
 .DS_Store
-

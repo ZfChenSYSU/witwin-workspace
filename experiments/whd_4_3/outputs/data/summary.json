@@ -1,0 +1,178 @@
+{
+  "generated_at_utc": "2026-07-17T05:27:23.144847+00:00",
+  "screening_thresholds": {
+    "amplitude_rms_db": 1.0,
+    "phase_rms_deg": 10.0
+  },
+  "scenario_metrics": {
+    "unblocked": {
+      "at_minus_5cm": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      },
+      "at_plus_5cm": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      },
+      "at_minus_10cm": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      },
+      "at_plus_10cm": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      },
+      "max_over_scan": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      }
+    },
+    "blocked": {
+      "at_minus_5cm": {
+        "amplitude_rms_db": 11.345746625454538,
+        "phase_rms_deg": 26.340775236181646,
+        "complex_nrmse": 0.7667011751321735
+      },
+      "at_plus_5cm": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      },
+      "at_minus_10cm": {
+        "amplitude_rms_db": 10.313714233400026,
+        "phase_rms_deg": 16.964257959484826,
+        "complex_nrmse": 0.7138124311318788
+      },
+      "at_plus_10cm": {
+        "amplitude_rms_db": 0.0,
+        "phase_rms_deg": 9.56101469752706e-16,
+        "complex_nrmse": 0.0
+      },
+      "max_over_scan": {
+        "amplitude_rms_db": 11.345746625454538,
+        "phase_rms_deg": 26.340775236181646,
+        "complex_nrmse": 0.7667011751321735
+      }
+    },
+    "scattering_nominal": {
+      "at_minus_5cm": {
+        "amplitude_rms_db": 2.351067520990605,
+        "phase_rms_deg": 11.176102567048304,
+        "complex_nrmse": 0.2918583346414654
+      },
+      "at_plus_5cm": {
+        "amplitude_rms_db": 1.3869553035341564,
+        "phase_rms_deg": 15.467175613397439,
+        "complex_nrmse": 0.2891020240434222
+      },
+      "at_minus_10cm": {
+        "amplitude_rms_db": 0.398091274791503,
+        "phase_rms_deg": 6.110230893459127,
+        "complex_nrmse": 0.1187025445115143
+      },
+      "at_plus_10cm": {
+        "amplitude_rms_db": 0.7958182367021067,
+        "phase_rms_deg": 2.7723451931095244,
+        "complex_nrmse": 0.09898131218095874
+      },
+      "max_over_scan": {
+        "amplitude_rms_db": 2.453589131128487,
+        "phase_rms_deg": 15.467175613397439,
+        "complex_nrmse": 0.2918583346414654
+      }
+    }
+  },
+  "scattering_scale_robustness": {
+    "0.1": {
+      "max_amp_for_plus_minus_5cm_db": 0.9213665467194465,
+      "max_phase_for_plus_minus_5cm_deg": 6.248520668656351,
+      "observable_at_plus_minus_5cm": false
+    },
+    "0.25": {
+      "max_amp_for_plus_minus_5cm_db": 2.351067520990605,
+      "max_phase_for_plus_minus_5cm_deg": 15.467175613397439,
+      "observable_at_plus_minus_5cm": true
+    },
+    "0.5": {
+      "max_amp_for_plus_minus_5cm_db": 4.8421198970172945,
+      "max_phase_for_plus_minus_5cm_deg": 30.35953792142525,
+      "observable_at_plus_minus_5cm": true
+    }
+  },
+  "spatial_grid": {
+    "receiver_count": 1681,
+    "fraction_amp_observable_for_plus_minus_5cm": 0.9321832242712671,
+    "fraction_phase_observable_for_plus_minus_5cm": 0.8096371207614516,
+    "fraction_los_visibility_changed_for_plus_minus_5cm": 0.165377751338489,
+    "max_amplitude_rms_db": 2.9588203910077184,
+    "max_phase_rms_deg": 19.65226322030666
+  },
+  "witwin_los": {
+    "unblocked": {
+      "path_counts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "distances_with_no_path_m": []
+    },
+    "blocked_transition": {
+      "path_counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "distances_with_no_path_m": [
+        0.25,
+        0.275,
+        0.3,
+        0.325,
+        0.35
+      ]
+    }
+  },
+  "witwin_reflection_probe": {
+    "success": false,
+    "path_counts": null,
+    "reflection_path_counts": null,
+    "error_type": "RuntimeError",
+    "error": "RayD reflection EPC was required for this path solve, but the workload is not eligible for scene._rayd_scene.trace_refl_epc_field()."
+  }
+}

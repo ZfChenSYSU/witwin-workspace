@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "path_counts": null,
+  "reflection_path_counts": null,
+  "error_type": "RuntimeError",
+  "error": "RayD reflection EPC was required for this path solve, but the workload is not eligible for scene._rayd_scene.trace_refl_epc_field()."
+}
