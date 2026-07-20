@@ -1,0 +1,77 @@
+{
+  "max_bounces_requested": 3,
+  "third_order_paths_observed": true,
+  "maximum_third_order_path_count": 40,
+  "maximum_total_path_count": 66,
+  "minimum_total_path_count": 27,
+  "path_cap": 192,
+  "path_cap_headroom": 126,
+  "maximum_basis_reconstruction_nrmse": 8.150395842676517e-07,
+  "repeat_path_count_a": 36,
+  "repeat_path_count_b": 36,
+  "repeat_cfr_nrmse": 0.0,
+  "convergence": [
+    {
+      "num_samples": 256,
+      "path_count": 36,
+      "bounce_hist": [
+        0,
+        2,
+        9,
+        25
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    },
+    {
+      "num_samples": 512,
+      "path_count": 36,
+      "bounce_hist": [
+        0,
+        2,
+        9,
+        25
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    },
+    {
+      "num_samples": 1024,
+      "path_count": 36,
+      "bounce_hist": [
+        0,
+        2,
+        9,
+        25
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    },
+    {
+      "num_samples": 2048,
+      "path_count": 36,
+      "bounce_hist": [
+        0,
+        2,
+        9,
+        25
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    },
+    {
+      "num_samples": 4096,
+      "path_count": 36,
+      "bounce_hist": [
+        0,
+        2,
+        9,
+        25
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    }
+  ],
+  "reflection_backend": {
+    "field_backend_requested": "drjit",
+    "epc_backend": "drjit",
+    "rayd_epc_preferred": false,
+    "rayd_epc_required": false,
+    "ad_inputs": false
+  }
+}

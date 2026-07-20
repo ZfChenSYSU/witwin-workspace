@@ -1,0 +1,13 @@
+{
+  "theta_at_gradient_check": 0.91,
+  "finite_difference_step": 1e-05,
+  "autograd_derivative": -1.3774265804361912e-07,
+  "finite_difference_derivative": -1.377426579466075e-07,
+  "relative_gradient_error": 7.042960493807249e-10,
+  "profile_grid_points": 2001,
+  "profile_global_minimum_theta": 1.0,
+  "profile_local_minima_count": 1,
+  "loss_curvature_at_truth": 1.8389899979241042e-06,
+  "gradient_check_pass": true,
+  "identifiability_pass": true
+}

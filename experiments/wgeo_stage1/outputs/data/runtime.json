@@ -1,0 +1,53 @@
+{
+  "started_at_utc": "2026-07-20T09:25:45.318182+00:00",
+  "finished_at_utc": "2026-07-20T09:27:24.978777+00:00",
+  "elapsed_seconds": 99.66503085899967,
+  "command_force_sim": true,
+  "packages": {
+    "witwin": "0.0.2",
+    "witwin-channel": "0.1.0",
+    "rayd": "0.4.0",
+    "drjit": "1.3.1",
+    "torch": "2.10.0+cu128",
+    "numpy": "2.4.1",
+    "matplotlib": "3.10.8"
+  },
+  "source_revisions": {
+    "witwin-core": "897ee1cdee3b4f35fb0db0c153197f5ebfcce21f",
+    "witwin-channel": "86ec9321e1d7e9288c53ddce3beb68631f92f12d"
+  },
+  "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "drjit_liboptix_path": "/usr/lib/x86_64-linux-gnu/libnvoptix.so.1",
+  "config": {
+    "carrier_hz": 2400000000.0,
+    "bandwidth_hz": 20000000.0,
+    "num_subcarriers": 64,
+    "num_time": 20,
+    "num_train": 16,
+    "num_test": 4,
+    "num_csi_repeats": 200,
+    "num_depth_repeats": 5,
+    "csi_snr_db": 30.0,
+    "max_bounces": 3,
+    "num_samples": 2048,
+    "max_num_paths": 192,
+    "max_diffraction_order": 0,
+    "reflection_backend": "drjit",
+    "theta_true": 1.0,
+    "theta_bounds": [
+      0.5,
+      1.5
+    ],
+    "seeds": {
+      "depth": [
+        20260720,
+        20260721,
+        20260722,
+        20260723,
+        20260724
+      ],
+      "csi": 20260721,
+      "bootstrap": 20260722
+    }
+  }
+}
