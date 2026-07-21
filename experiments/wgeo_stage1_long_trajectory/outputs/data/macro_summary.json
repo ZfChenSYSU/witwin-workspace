@@ -1,0 +1,32 @@
+{
+  "conditions": [
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "D5"
+  ],
+  "weighting": "equal across D1--D5",
+  "cluster_count": 25,
+  "macro_test_nrmse_mean": 0.6269978434924456,
+  "macro_test_nrmse_cluster_bootstrap_ci": [
+    0.210184323769567,
+    1.134687113331125
+  ],
+  "macro_minus_D0_mean": 0.6262777059610606,
+  "macro_minus_D0_cluster_bootstrap_ci": [
+    0.2087068752944745,
+    1.1397344435697434
+  ],
+  "energy_pooled_macro_test_nrmse": 0.17201162944431445,
+  "energy_pooled_D0_test_nrmse": 0.0005147842196188666,
+  "energy_pooled_macro_cluster_bootstrap_ci": [
+    0.1241911449924696,
+    0.20271820856982897
+  ],
+  "energy_pooled_macro_minus_D0": 0.17149684522469558,
+  "energy_pooled_macro_minus_D0_cluster_bootstrap_ci": [
+    0.12374510656197064,
+    0.2021650245038942
+  ]
+}

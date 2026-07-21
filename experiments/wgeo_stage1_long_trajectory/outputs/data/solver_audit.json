@@ -1,0 +1,81 @@
+{
+  "cache_version": "long-parallel-d0-d5-v1",
+  "main_geometry_solves": 2080,
+  "extra_audit_solves": 6,
+  "minimum_total_path_count": 25,
+  "maximum_total_path_count": 70,
+  "maximum_third_order_path_count": 41,
+  "path_cap": 192,
+  "minimum_path_cap_margin": 122,
+  "maximum_basis_reconstruction_nrmse": 6.328238555397547e-07,
+  "repeat_path_counts": [
+    62,
+    62
+  ],
+  "repeat_cfr_nrmse": 0.0,
+  "convergence": [
+    {
+      "num_samples": 256,
+      "path_count": 60,
+      "bounce_hist": [
+        1,
+        6,
+        18,
+        35
+      ],
+      "cfr_nrmse_vs_4096": 0.0012021155528258224
+    },
+    {
+      "num_samples": 512,
+      "path_count": 60,
+      "bounce_hist": [
+        1,
+        6,
+        18,
+        35
+      ],
+      "cfr_nrmse_vs_4096": 0.002973524827202947
+    },
+    {
+      "num_samples": 1024,
+      "path_count": 62,
+      "bounce_hist": [
+        1,
+        6,
+        18,
+        37
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    },
+    {
+      "num_samples": 2048,
+      "path_count": 62,
+      "bounce_hist": [
+        1,
+        6,
+        18,
+        37
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    },
+    {
+      "num_samples": 4096,
+      "path_count": 62,
+      "bounce_hist": [
+        1,
+        6,
+        18,
+        37
+      ],
+      "cfr_nrmse_vs_4096": 0.0
+    }
+  ],
+  "reflection_backend": {
+    "field_backend_requested": "drjit",
+    "epc_backend": "drjit",
+    "rayd_epc_preferred": false,
+    "rayd_epc_required": false,
+    "ad_inputs": false
+  },
+  "main_and_audit_solver_elapsed_seconds": 179.2597456700023
+}
