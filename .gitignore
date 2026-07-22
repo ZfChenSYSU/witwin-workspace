@@ -8,9 +8,10 @@ __pycache__/
 logs/
 experiments/**/outputs/run_stdout.json
 
-# Host-machine snapshot, research documents, and system workarounds
-workspace/host_snapshot/
-workspace/project-docs/
+# Workspace research documents are versioned. Keep host-local configuration,
+# large OptiX/driver backups, and system-workaround links out of Git.
+workspace/host_snapshot/.claude/
+workspace/host_snapshot/.witwin-optix-workaround/
 workspace/support/
 
 # Local editor and OS metadata
