@@ -18,9 +18,24 @@
 
 - WiTwin Core 源码：`/opt/witwin/src/witwin-core`。
 - WiTwin Channel 源码：`/opt/witwin/src/witwin-channel`。
+- iOS 采集端：`/opt/witwin/apps/ios-recorder`。
+- CSI Linux 采集端：`/opt/witwin/capture/csi-linux`。
+- 视频 SLAM/三维重建：`/opt/witwin/pipelines/reconstruction`。
+- WiTwin 实验与产物：`/opt/witwin/pipelines/witwin`。
+- 三端公共会话、时间和坐标协议：`/opt/witwin/schemas/session-format`。
+- 本地原始/处理中数据：`/opt/witwin/datasets`，默认不提交 Git。
 - `/opt/witwin/workspace/host_snapshot` 是 Windows 当前目录在 2026-07-15 的完整快照。除非用户明确要求，不要批量移动、重命名或删除其中内容。
 - `/opt/witwin/workspace/project-docs` 和 `/opt/witwin/workspace/support` 是整理后的符号链接入口；从这些入口编辑会修改快照中的对应文件。
 - 容器内生成的说明和交接文档统一放在 `/opt/witwin/docs`。
+
+## 分支职责
+
+- `main`：已验证的集成状态和公共协议。
+- `work/wsl-witwin`：WSL/GPU、重建、WiTwin 和离线分析。
+- `work/csi-linux`：PicoScenes、网卡、CSI/UDP 采集和数据整理。
+- `work/ios-recorder`：Mac/Xcode 上的 iPhone 采集应用。
+- 三端共享字段优先修改 `schemas/session-format`，并通过 `main` 同步；不要各自维护不兼容副本。
+- 大体积视频、CSI、点云和网格放在 `datasets` 或外部存储，只提交元数据、校验和、小型测试样本和处理脚本。
 
 ## 兼容性决策
 
@@ -39,4 +54,3 @@
 - `CODEX_HOME` 是 `/root/.codex`，目录已经创建且权限为 `700 root:root`。
 - VS Code 容器扩展自带 Codex CLI；不要求系统全局安装 `codex`、Node.js 或 npm。
 - 如果 Codex 面板显示旧的启动错误，优先让 VS Code 执行“开发人员: 重新加载窗口”。
-

@@ -198,7 +198,7 @@ workload is not eligible for scene._rayd_scene.trace_refl_epc_field().
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/whd_4_3/run_experiment.py
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/whd_4_3/run_experiment.py
 ```
 
 机器可读证据：

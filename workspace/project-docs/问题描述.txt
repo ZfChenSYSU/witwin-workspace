@@ -1,1 +1,1 @@
-/opt/witwin/workspace/host_snapshot/问题描述.txt
+../host_snapshot/问题描述.txt

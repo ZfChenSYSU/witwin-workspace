@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ZfChenSYSU/witwin-workspace/schemas/session-format/session.schema.json",
+  "title": "WiTwin multimodal capture session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "created_at",
+    "devices",
+    "assembly",
+    "timebases",
+    "files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspace_commit": {
+          "$ref": "#/$defs/gitCommit"
+        },
+        "witwin_core_commit": {
+          "$ref": "#/$defs/gitCommit"
+        },
+        "witwin_channel_commit": {
+          "$ref": "#/$defs/gitCommit"
+        }
+      }
+    },
+    "devices": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phone",
+        "csi_receiver"
+      ],
+      "properties": {
+        "phone": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "model",
+            "os_version"
+          ],
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "os_version": {
+              "type": "string"
+            },
+            "app_version": {
+              "type": "string"
+            },
+            "wifi_mac_observed": {
+              "$ref": "#/$defs/macAddress"
+            }
+          }
+        },
+        "csi_receiver": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "nic_model",
+            "capture_software"
+          ],
+          "properties": {
+            "nic_model": {
+              "type": "string"
+            },
+            "capture_software": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "assembly": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "phone_assembly_id",
+        "receiver_assembly_id"
+      ],
+      "properties": {
+        "phone_assembly_id": {
+          "type": "string"
+        },
+        "receiver_assembly_id": {
+          "type": "string"
+        }
+      }
+    },
+    "timebases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phone",
+        "csi"
+      ],
+      "properties": {
+        "phone": {
+          "$ref": "#/$defs/timebase"
+        },
+        "csi": {
+          "$ref": "#/$defs/timebase"
+        },
+        "phone_to_csi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clock_scale",
+            "clock_offset_ns",
+            "fit_samples",
+            "residual_rms_ns"
+          ],
+          "properties": {
+            "clock_scale": {
+              "type": "number"
+            },
+            "clock_offset_ns": {
+              "type": "number"
+            },
+            "fit_samples": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "residual_rms_ns": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "coordinate_convention": {
+      "type": "string",
+      "const": "schemas/session-format/coordinate_frames.md"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    }
+  },
+  "$defs": {
+    "gitCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "macAddress": {
+      "type": "string",
+      "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+    },
+    "timebase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clock",
+        "unit"
+      ],
+      "properties": {
+        "clock": {
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "ns",
+            "s"
+          ]
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

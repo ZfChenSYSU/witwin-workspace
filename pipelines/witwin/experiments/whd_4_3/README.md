@@ -8,7 +8,7 @@
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/whd_4_3/run_experiment.py
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/whd_4_3/run_experiment.py
 ```
 
 生成的 CSV、JSON、NPZ 数据和图形保存在 `outputs/` 目录中。

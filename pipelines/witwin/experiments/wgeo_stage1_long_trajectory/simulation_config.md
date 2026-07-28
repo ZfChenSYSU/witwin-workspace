@@ -182,7 +182,7 @@ D1--D5的合并结果使用透明的等权条件宏平均；由于没有真实�
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/wgeo_stage1_long_trajectory/run_experiment.py --force-sim
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/wgeo_stage1_long_trajectory/run_experiment.py --force-sim
 ```
 
 复用缓存命令见 [README.md](README.md)。

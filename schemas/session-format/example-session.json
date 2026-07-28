@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "session_id": "session_20260728_001",
+  "created_at": "2026-07-28T10:00:00Z",
+  "git": {
+    "workspace_commit": "0000000000000000000000000000000000000000",
+    "witwin_core_commit": "897ee1cdee3b4f35fb0db0c153197f5ebfcce21f",
+    "witwin_channel_commit": "86ec9321e1d7e9288c53ddce3beb68631f92f12d"
+  },
+  "devices": {
+    "phone": {
+      "model": "iPhone 11 Pro",
+      "os_version": "record-at-capture",
+      "app_version": "0.1.0",
+      "wifi_mac_observed": "02:00:00:00:00:01"
+    },
+    "csi_receiver": {
+      "nic_model": "record-at-capture",
+      "capture_software": "PicoScenes record-version"
+    }
+  },
+  "assembly": {
+    "phone_assembly_id": "phone-rig-001",
+    "receiver_assembly_id": "csi-rig-001"
+  },
+  "timebases": {
+    "phone": {
+      "clock": "phone_monotonic",
+      "unit": "ns"
+    },
+    "csi": {
+      "clock": "csi_host_monotonic",
+      "unit": "ns"
+    }
+  },
+  "coordinate_convention": "schemas/session-format/coordinate_frames.md",
+  "files": []
+}

@@ -8,7 +8,16 @@
 
 远程仓库：<https://github.com/ZfChenSYSU/witwin-workspace>
 
-默认分支是 `main`。下面的命令除特别说明外，都应在 `/opt/witwin` 中运行。
+稳定集成分支是 `main`。日常开发使用三个设备工作分支：
+
+```text
+work/wsl-witwin
+work/csi-linux
+work/ios-recorder
+```
+
+下面的命令除特别说明外，都应在对应设备的仓库根目录运行。完整协作流程见
+[`BRANCH_WORKFLOW.md`](BRANCH_WORKFLOW.md)。
 
 ## 1. 开始工作
 
@@ -19,13 +28,15 @@ cd /opt/witwin
 git status
 ```
 
-建议每次修改前先同步远程更新：
+建议每次修改前确认处于本设备工作分支，再同步 `main`：
 
 ```bash
-git pull --ff-only
+git fetch origin
+git rebase origin/main
 ```
 
-`--ff-only` 可以避免 Git 在不知情的情况下自动生成合并提交。如果本地和远程各自有新提交，命令会停止并要求人工处理。
+例如 WSL/GPU 端应处于 `work/wsl-witwin`。三个设备不要直接并发向 `main`
+推送；稳定修改通过 Pull Request 合入 `main`。
 
 ## 2. 用 Git 做版本管理
 
@@ -92,15 +103,18 @@ git log --oneline --follow -- <文件路径>
 
 ### 2.3 用分支隔离不同版本的开发
 
-`main` 应保存相对稳定、已经验证的版本。实验性功能或较大改动使用独立分支：
+`main` 应保存相对稳定、已经验证的版本。平台开发先进入对应工作分支：
 
 ```bash
-git switch main
-git pull --ff-only
-git switch -c experiment/reflection-path
+git fetch origin
+git switch work/wsl-witwin
+git rebase origin/main
 ```
 
-在实验分支中可以多次提交，不影响 `main`。验证完成后再通过合并或 GitHub Pull Request 纳入主分支。尚未验证的 `max_bounces > 0` 反射路径尤其适合放在独立分支中，避免被误认为主分支已经支持。
+单项高风险功能还可从设备工作分支建立短期 `feature/...` 分支。在实验分支中
+可以多次提交，不影响 `main`。验证完成后再通过 GitHub Pull Request 纳入
+主分支。尚未验证的 `max_bounces > 0` 反射路径尤其适合放在独立功能分支中，
+避免被误认为主分支已经支持。
 
 ### 2.4 用标签标记里程碑版本
 
@@ -225,7 +239,8 @@ git push
 
 ```bash
 git status
-git pull --ff-only
+git fetch origin
+git rebase origin/main
 git add <文件路径>
 git diff --cached
 git commit -m "说明本次改动"
@@ -238,10 +253,16 @@ git push
 
 - `venv/`：约 7 GB 的 Python 虚拟环境，可重新创建，不应上传。
 - `logs/`：验证过程产生的日志。
-- `workspace/host_snapshot/`：Windows 文件快照、驱动文件和备份。
-- `workspace/project-docs/`：指向宿主快照的本地符号链接入口。
+- `datasets/` 中的原始和处理中视频、CSI、IMU、点云和网格。
+- `apps/ios-recorder/DerivedData/` 和 iOS 本地构建产物。
+- `capture/csi-linux/raw/` 和临时采集文件。
+- `workspace/host_snapshot/.claude/`：宿主工具私有配置。
+- `workspace/host_snapshot/.witwin-optix-workaround/`：驱动和系统修复备份。
 - `workspace/support/`：OptiX 处理材料等本地支持文件。
 - Python 缓存、编辑器配置和常见系统元数据。
+
+科研文档和经过筛选的小型实验结果当前是版本化内容。`workspace/host_snapshot/`
+中的普通科研文档也已经进入历史，因此不能把整个目录笼统视为缓存或随意删除。
 
 检查某个文件为什么被忽略：
 
@@ -297,7 +318,15 @@ git push
 
 ## 7. 使用分支开发
 
-较大的修改建议放在单独分支中：
+三台设备分别使用：
+
+```bash
+git switch work/wsl-witwin
+git switch work/csi-linux
+git switch work/ios-recorder
+```
+
+每台设备只选择与自身对应的一条。较大的独立修改可再建立短期功能分支：
 
 ```bash
 git switch -c feature/简短名称
@@ -309,12 +338,8 @@ git switch -c feature/简短名称
 git push -u origin feature/简短名称
 ```
 
-切回主分支：
-
-```bash
-git switch main
-git pull --ff-only
-```
+验证后通过 Pull Request 合入 `main`，其他设备再执行 `git fetch origin` 和
+`git rebase origin/main`。三端公共协议必须集中维护在 `schemas/session-format/`。
 
 查看本地和远程分支：
 
@@ -362,17 +387,19 @@ git push --force
 
 ## 9. 处理合并冲突
 
-当 `git pull --ff-only` 提示本地与远程发生分叉时，先查看状态和提交关系：
+当 fetch、rebase 或 push 提示本地与远程发生分叉时，先查看状态和提交关系：
 
 ```bash
 git status
 git log --oneline --graph --decorate --all -20
 ```
 
-不要立刻强制推送。常见做法是先保存当前工作，然后选择合并或变基：
+不要立刻强制推送。常见做法是先提交或暂存当前工作，再让设备工作分支基于最新
+`main` 变基：
 
 ```bash
-git pull --rebase
+git fetch origin
+git rebase origin/main
 ```
 
 发生冲突后，Git 会在文件中标出冲突区域。人工编辑并确认内容后：
@@ -464,8 +491,9 @@ git log --oneline --decorate -10
 # 远程地址
 git remote -v
 
-# 拉取（仅允许快进）
-git pull --ff-only
+# 把当前设备工作分支同步到最新 main
+git fetch origin
+git rebase origin/main
 
 # 推送当前分支
 git push

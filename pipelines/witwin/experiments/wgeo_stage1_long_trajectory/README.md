@@ -1,6 +1,6 @@
 # `w_geo` 长轨迹并行 D0--D5 实验
 
-本目录是在原 `experiments/wgeo_stage1` 基础上重新设计的独立实验。它使用覆盖 5 个空间区块的 80 时刻长轨迹，并在每个时刻并行施加 D0--D5 六种几何条件，避免把误差类型与时间或空间位置混在一起。
+本目录是在 `pipelines/witwin/experiments/wgeo_stage1` 基础上重新设计的独立实验。它使用覆盖 5 个空间区块的 80 时刻长轨迹，并在每个时刻并行施加 D0--D5 六种几何条件，避免把误差类型与时间或空间位置混在一起。
 
 ## 复现
 
@@ -9,7 +9,7 @@
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/wgeo_stage1_long_trajectory/run_experiment.py --force-sim
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/wgeo_stage1_long_trajectory/run_experiment.py --force-sim
 ```
 
 复用逐阶路径基，仅重做统计和绘图：
@@ -17,7 +17,7 @@ export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/wgeo_stage1_long_trajectory/run_experiment.py
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/wgeo_stage1_long_trajectory/run_experiment.py
 ```
 
 最近一次完整强制运行耗时 **209.217 秒**，其中主体和审计路径求解耗时 **179.260 秒**；机器结果为 `success=true`、`overall_go=true`。

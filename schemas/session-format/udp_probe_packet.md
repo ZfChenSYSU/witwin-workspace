@@ -1,0 +1,27 @@
+# UDP Probe Packet v1
+
+手机通过 Wi-Fi 发送 UDP 上行包，用于产生可识别流量并建立手机时钟与 CSI
+采集时钟的对应关系。所有多字节整数采用网络字节序（big-endian）。
+
+## 固定 32 字节头
+
+| 偏移 | 长度 | 字段 | 类型 | 含义 |
+|---:|---:|---|---|---|
+| 0 | 4 | `magic` | bytes | ASCII `WTWN` |
+| 4 | 1 | `protocol_version` | uint8 | 当前为 `1` |
+| 5 | 1 | `flags` | uint8 | 当前写 `0` |
+| 6 | 2 | `header_length` | uint16 | 当前为 `32` |
+| 8 | 8 | `session_hash` | uint64 | `session_id` SHA-256 的前 8 字节 |
+| 16 | 8 | `sequence` | uint64 | session 内从 0 单调递增 |
+| 24 | 8 | `phone_monotonic_ns` | uint64 | 手机单调时钟纳秒 |
+
+偏移 32 之后是可选载荷。接收端必须先验证 magic、版本和头长度，再读取其他字段。
+不支持的主版本应明确拒绝，不能按 v1 猜测解析。
+
+## 采集要求
+
+- iOS 端同时将每个序号和发送结果写入 `udp_tx` 日志；
+- CSI Linux 端记录可解析 UDP 包的序号、CSI 时间和主机接收时间；
+- 不允许用 UDP 到达时间替换 CSI 硬件或采集软件时间戳；
+- session 开始、中间和结束都应持续产生匹配点，以估计时钟漂移；
+- 重发不能复用序号；丢失序号作为丢包统计保留。

@@ -1,6 +1,6 @@
 # 阶段 1：`w_geo` 仿真科学假设验证
 
-本目录是依据[《前置深度增强的科研项目待办与验证计划》](../../workspace/project-docs/前置深度增强的科研项目待办与验证计划.md)重新设计并实际完成的独立实验。正式求解固定 `max_bounces=3`，使用当前锁定的 WiTwin 环境和 DrJit 反射场后端；既有 `experiments/whd_4_3` 实验没有被修改。
+本目录是依据[《前置深度增强的科研项目待办与验证计划》](../../../../workspace/project-docs/前置深度增强的科研项目待办与验证计划.md)重新设计并实际完成的独立实验。正式求解固定 `max_bounces=3`，使用当前锁定的 WiTwin 环境和 DrJit 反射场后端；既有 `pipelines/witwin/experiments/whd_4_3` 实验没有被修改。
 
 ## 一键复现
 
@@ -9,7 +9,7 @@
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/wgeo_stage1/run_experiment.py --force-sim
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/wgeo_stage1/run_experiment.py --force-sim
 ```
 
 复用已保存的逐阶路径基，仅重做统计分析和绘图：
@@ -17,7 +17,7 @@ export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
 ```bash
 cd /opt/witwin
 export DRJIT_LIBOPTIX_PATH=/usr/lib/x86_64-linux-gnu/libnvoptix.so.1
-/opt/witwin/venv/bin/python experiments/wgeo_stage1/run_experiment.py
+/opt/witwin/venv/bin/python pipelines/witwin/experiments/wgeo_stage1/run_experiment.py
 ```
 
 本次完整运行耗时 99.665 秒，最终打印 `success: true`、`overall_go: true`。

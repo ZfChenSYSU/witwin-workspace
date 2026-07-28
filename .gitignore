@@ -6,7 +6,21 @@ __pycache__/
 
 # Generated validation output
 logs/
-experiments/**/outputs/run_stdout.json
+pipelines/witwin/experiments/**/outputs/run_stdout.json
+
+# Local experiment datasets. Keep only documentation and intentionally curated
+# tiny examples under version control.
+datasets/**
+!datasets/.gitignore
+!datasets/README.md
+!datasets/examples/
+!datasets/examples/**
+
+# Platform-specific build products and raw captures
+apps/ios-recorder/DerivedData/
+apps/ios-recorder/.build/
+capture/csi-linux/raw/
+capture/csi-linux/tmp/
 
 # Workspace research documents are versioned. Keep host-local configuration,
 # large OptiX/driver backups, and system-workaround links out of Git.

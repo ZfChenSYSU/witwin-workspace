@@ -1,1 +1,1 @@
-/opt/witwin/workspace/host_snapshot/WiTwin使用说明.md
+../host_snapshot/WiTwin使用说明.md
