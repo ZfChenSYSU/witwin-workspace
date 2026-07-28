@@ -1,0 +1,40 @@
+name: WiTwinRecorder
+options:
+  bundleIdPrefix: org.witwin
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.1.0"
+    DEVELOPMENT_TEAM: MDDM5655PS
+targets:
+  WiTwinRecorder:
+    type: application
+    platform: iOS
+    sources:
+      - path: WiTwinRecorder
+        excludes:
+          - Resources/Info.plist
+    info:
+      path: WiTwinRecorder/Resources/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.witwin.recorder
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+    scheme:
+      testTargets:
+        - WiTwinRecorderTests
+  WiTwinRecorderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - WiTwinRecorderTests
+    dependencies:
+      - target: WiTwinRecorder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.witwin.recorder.tests
