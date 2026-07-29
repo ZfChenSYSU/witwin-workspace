@@ -1,5 +1,6 @@
 # Local Python environment and caches
 venv/
+/venv-picoscenes/
 __pycache__/
 *.py[cod]
 .pytest_cache/
