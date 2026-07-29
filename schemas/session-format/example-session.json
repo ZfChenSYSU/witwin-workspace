@@ -1,6 +1,7 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "session_id": "session_20260728_001",
+  "capture_stage": "phone_only_p1",
   "created_at": "2026-07-28T10:00:00Z",
   "git": {
     "workspace_commit": "0000000000000000000000000000000000000000",
@@ -11,26 +12,16 @@
     "phone": {
       "model": "iPhone 11 Pro",
       "os_version": "record-at-capture",
-      "app_version": "0.1.0",
-      "wifi_mac_observed": "02:00:00:00:00:01"
-    },
-    "csi_receiver": {
-      "nic_model": "record-at-capture",
-      "capture_software": "PicoScenes record-version"
+      "app_version": "0.2.0"
     }
   },
   "assembly": {
-    "phone_assembly_id": "phone-rig-001",
-    "receiver_assembly_id": "csi-rig-001"
+    "phone_assembly_id": "phone-rig-001"
   },
   "timebases": {
     "phone": {
-      "clock": "phone_monotonic",
-      "unit": "ns"
-    },
-    "csi": {
-      "clock": "csi_host_monotonic",
-      "unit": "ns"
+      "clock": "mach_continuous_time_seconds",
+      "unit": "s"
     }
   },
   "coordinate_convention": "schemas/session-format/coordinate_frames.md",

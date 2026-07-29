@@ -30,7 +30,11 @@ Xcode 状态。`DerivedData/` 和本地构建产物已被 Git 忽略。
 ## 当前实现
 
 已建立 `WiTwinRecorder.xcodeproj`、共享 Scheme 和对应的 `project.yml`。当前
-P0 能力探针会：
+App 版本为 0.2.0。
+
+### P0 能力探针
+
+能力探针会：
 
 - 记录设备型号、硬件标识、iOS 与 App 版本；
 - 检查三项 ARKit 静态能力；
@@ -45,6 +49,39 @@ P0 能力探针会：
 
 `capabilities.json` 是设备能力探针，不替代完整 session 的
 `schemas/session-format/session.schema.json`。
+
+### P1 同步采集
+
+`SessionRecorder` 实现：
+
+- `idle -> preparing -> recording -> stopping -> completed/failed` 状态机；
+- 每次建立独立的 `Documents/Sessions/session_YYYYMMDD_HHMMSS/`；
+- 使用同一个 `ARFrame.capturedImage` 写入 HEVC/MOV 并生成逐帧映射；
+- 连续保存 ARKit 世界位姿、内参、图像尺寸和 tracking state；
+- 以 100 Hz 目标频率记录加速度计、陀螺仪和 Device Motion；
+- 持续保存 `ARFaceAnchor.transform`、`isTracked` 和跟踪事件；
+- 保存装配编号、人工标记、热状态和起止可用存储空间；
+- 停止后生成 `metadata.json`、`validation_report.json` 和
+  `checksums.sha256`；
+- App 进入后台或热状态达到 `critical` 时主动停止并封装数据。
+
+P1 session 目录包含：
+
+```text
+metadata.json
+capabilities.json
+assembly.json
+rear_video.mov
+ar_frames.csv
+face_anchors.csv
+imu.csv
+events.csv
+validation_report.json
+checksums.sha256
+```
+
+公共 session schema 已升级到 1.1.0，并用 `capture_stage=phone_only_p1` 明确
+P1 不需要伪造 CSI 设备、装配或时基。
 
 ## 打开与构建
 
@@ -82,7 +119,7 @@ xcodegen generate
 
 生成后应重新执行构建和测试，避免只验证 YAML 或只验证已生成工程。
 
-## 当前验证状态（2026-07-28）
+## 当前验证状态（2026-07-29）
 
 - iOS Simulator 26.5 SDK、arm64、Debug App 构建通过；
 - `WiTwinRecorderTests` 测试 Target 的 `build-for-testing` 通过；
@@ -96,8 +133,25 @@ xcodegen generate
 - 真机证据保存在本地忽略目录
   `datasets/iphone11pro-p0-20260728/capabilities.json`；
 - 开发证书已恢复系统默认信任，个人证书私钥授权可正常用于自动签名；
-- `WiTwinRecorderTests` 已在同一台 iPhone 11 Pro 上执行，2 项测试全部通过，
-  包括带数字的 `3x3`、`4x4` snake_case 字段解码和 JSON 等值往返。
+- `WiTwinRecorderTests` 已在同一台 iPhone 11 Pro 上执行，5 项测试全部通过；
+- 5 秒真机端到端采集冒烟测试通过；
+- 1 分钟真机 P1 测试通过：60.18 秒、3583 个 ARFrame、3583 个视频帧、
+  0 丢帧、42050 条 IMU 样本；
+- 各 IMU 数据流约 100.02 Hz；
+- 取得 2569 条人脸锚点样本，有效跟踪占比 99.81%；
+- 测试期间最高热状态为 `nominal`，自动报告无错误、无警告；
+- 完整 1 分钟证据保存在本地忽略目录
+  `datasets/iphone11pro-p1-20260729/session_20260729_105114/`。
+
+## 离线完整性复核
+
+App 会在停止时自动检查。导出 session 后还可以在 Mac/Linux 复核 CSV 与
+SHA-256：
+
+```bash
+apps/ios-recorder/scripts/check_p1_session.sh \
+  datasets/iphone11pro-p1-20260729/session_20260729_105114
+```
 
 ## 真机验证
 
@@ -105,3 +159,6 @@ xcodegen generate
 [`TRUE_DEVICE_CHECKLIST.md`](TRUE_DEVICE_CHECKLIST.md)。在生成并导出真实
 `capabilities.json` 前，只能认为工程“编译通过”，不能认为设备能力或并发跟踪
 已经通过。
+
+P1 最小里程碑已经通过；进入 P2 前仍需在正式移动扫描路径上完成 10 分钟稳定性
+测试。

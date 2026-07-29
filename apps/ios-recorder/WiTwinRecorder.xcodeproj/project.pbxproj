@@ -12,6 +12,13 @@
 		300000000000000000000003 /* CapabilityProbeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* CapabilityProbeService.swift */; };
 		300000000000000000000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* ContentView.swift */; };
 		300000000000000000000005 /* CapabilityReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* CapabilityReportTests.swift */; };
+		300000000000000000000006 /* SessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* SessionModels.swift */; };
+		300000000000000000000007 /* CSVWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* CSVWriter.swift */; };
+		300000000000000000000008 /* MatrixFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000B /* MatrixFormatting.swift */; };
+		300000000000000000000009 /* RoomScanRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RoomScanRecorder.swift */; };
+		30000000000000000000000A /* MotionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* MotionRecorder.swift */; };
+		30000000000000000000000B /* SessionIntegrityValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* SessionIntegrityValidator.swift */; };
+		30000000000000000000000C /* SessionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* SessionRecorder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +40,13 @@
 		200000000000000000000006 /* CapabilityReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityReportTests.swift; sourceTree = "<group>"; };
 		200000000000000000000007 /* WiTwinRecorder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WiTwinRecorder.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		200000000000000000000008 /* WiTwinRecorderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WiTwinRecorderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000009 /* SessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModels.swift; sourceTree = "<group>"; };
+		20000000000000000000000A /* CSVWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVWriter.swift; sourceTree = "<group>"; };
+		20000000000000000000000B /* MatrixFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatrixFormatting.swift; sourceTree = "<group>"; };
+		20000000000000000000000C /* RoomScanRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomScanRecorder.swift; sourceTree = "<group>"; };
+		20000000000000000000000D /* MotionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRecorder.swift; sourceTree = "<group>"; };
+		20000000000000000000000E /* SessionIntegrityValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionIntegrityValidator.swift; sourceTree = "<group>"; };
+		20000000000000000000000F /* SessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecorder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +101,7 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000002 /* CapabilityReport.swift */,
+				200000000000000000000009 /* SessionModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -95,6 +110,12 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000003 /* CapabilityProbeService.swift */,
+				20000000000000000000000A /* CSVWriter.swift */,
+				20000000000000000000000B /* MatrixFormatting.swift */,
+				20000000000000000000000C /* RoomScanRecorder.swift */,
+				20000000000000000000000D /* MotionRecorder.swift */,
+				20000000000000000000000E /* SessionIntegrityValidator.swift */,
+				20000000000000000000000F /* SessionRecorder.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -225,6 +246,13 @@
 				300000000000000000000002 /* CapabilityReport.swift in Sources */,
 				300000000000000000000003 /* CapabilityProbeService.swift in Sources */,
 				300000000000000000000004 /* ContentView.swift in Sources */,
+				300000000000000000000006 /* SessionModels.swift in Sources */,
+				300000000000000000000007 /* CSVWriter.swift in Sources */,
+				300000000000000000000008 /* MatrixFormatting.swift in Sources */,
+				300000000000000000000009 /* RoomScanRecorder.swift in Sources */,
+				30000000000000000000000A /* MotionRecorder.swift in Sources */,
+				30000000000000000000000B /* SessionIntegrityValidator.swift in Sources */,
+				30000000000000000000000C /* SessionRecorder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,7 +395,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.witwin.recorder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -388,7 +416,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.witwin.recorder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

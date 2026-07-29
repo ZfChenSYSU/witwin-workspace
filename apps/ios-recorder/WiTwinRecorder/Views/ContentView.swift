@@ -1,14 +1,20 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var probe = CapabilityProbeService()
+    @StateObject private var recorder = SessionRecorder()
+    @State private var phoneAssemblyID = "phone-rig-001"
 
     var body: some View {
         NavigationStack {
             List {
+                p1RecordingSection
+                p1ResultSection
+
                 Section("P0 能力探针") {
-                    Label(probe.statusMessage, systemImage: statusSymbol)
-                        .foregroundStyle(statusColor)
+                    Label(probe.statusMessage, systemImage: probeStatusSymbol)
+                        .foregroundStyle(probeStatusColor)
 
                     Button {
                         probe.run()
@@ -43,19 +49,133 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("WiTwin Recorder")
+            .onChange(of: scenePhase) { phase in
+                if phase != .active {
+                    recorder.handleAppBecameInactive()
+                }
+            }
         }
     }
 
-    private var statusSymbol: String {
+    @ViewBuilder
+    private var p1RecordingSection: some View {
+        Section("P1 同步采集") {
+            Label(recorder.statusMessage, systemImage: recorderStatusSymbol)
+                .foregroundStyle(recorderStatusColor)
+
+            TextField("手机—夹具—稳定器装配编号", text: $phoneAssemblyID)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .disabled(recorder.isBusy)
+
+            if recorder.state == .recording || recorder.state == .stopping {
+                LabeledContent("已采集", value: duration(recorder.elapsedSeconds))
+                    .monospacedDigit()
+            }
+
+            HStack {
+                Button {
+                    recorder.start(phoneAssemblyID: phoneAssemblyID)
+                } label: {
+                    Label("开始", systemImage: "record.circle")
+                }
+                .disabled(!recorder.canStart || probe.isRunning)
+
+                Button {
+                    recorder.markEvent()
+                } label: {
+                    Label("标记", systemImage: "flag")
+                }
+                .disabled(recorder.state != .recording)
+
+                Button(role: .destructive) {
+                    recorder.stop()
+                } label: {
+                    Label("停止", systemImage: "stop.circle")
+                }
+                .disabled(!recorder.canStop)
+            }
+
+            Text("首轮请连续采集 1 分钟；通过自动检查后再做 10 分钟稳定性测试。采集期间请保持 App 在前台。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var p1ResultSection: some View {
+        if let report = recorder.validationReport {
+            Section("P1 自动检查") {
+                boolRow("通过", report.passed)
+                valueRow("时长", duration(report.statistics.durationSeconds))
+                valueRow("ARFrame", "\(report.statistics.arFrameCount)")
+                valueRow("视频帧", "\(report.statistics.videoFrameCount)")
+                valueRow(
+                    "映射缺失率",
+                    String(format: "%.3f%%", report.statistics.videoMappingMissingRate * 100)
+                )
+                valueRow("IMU 样本", "\(report.statistics.imuSampleCount)")
+                valueRow("人脸锚点", "\(report.statistics.faceAnchorSampleCount)")
+
+                ForEach(report.errors, id: \.self) { error in
+                    Label(error, systemImage: "xmark.octagon")
+                        .foregroundStyle(.red)
+                }
+                ForEach(report.warnings, id: \.self) { warning in
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+
+        if let url = recorder.lastSessionURL {
+            Section("导出") {
+                ShareLink(item: url) {
+                    Label("导出完整 session 文件夹", systemImage: "square.and.arrow.up")
+                }
+                Text(url.lastPathComponent)
+                    .font(.footnote.monospaced())
+                    .textSelection(.enabled)
+            }
+        }
+    }
+
+    private var probeStatusSymbol: String {
         if probe.isRunning { return "hourglass" }
         if probe.report != nil { return "checkmark.circle" }
         return "circle.dashed"
     }
 
-    private var statusColor: Color {
+    private var probeStatusColor: Color {
         if probe.isRunning { return .blue }
         if probe.report != nil { return .green }
         return .secondary
+    }
+
+    private var recorderStatusSymbol: String {
+        switch recorder.state {
+        case .idle: return "circle.dashed"
+        case .preparing: return "hourglass"
+        case .recording: return "record.circle.fill"
+        case .stopping: return "stopwatch"
+        case .completed: return "checkmark.circle.fill"
+        case .failed: return "xmark.octagon.fill"
+        }
+    }
+
+    private var recorderStatusColor: Color {
+        switch recorder.state {
+        case .idle: return .secondary
+        case .preparing, .stopping: return .blue
+        case .recording: return .red
+        case .completed: return .green
+        case .failed: return .red
+        }
+    }
+
+    private func duration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 
     @ViewBuilder

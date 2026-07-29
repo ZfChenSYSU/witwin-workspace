@@ -7,15 +7,55 @@
   "required": [
     "schema_version",
     "session_id",
+    "capture_stage",
     "created_at",
     "devices",
     "assembly",
     "timebases",
     "files"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "capture_stage": {
+            "enum": [
+              "phone_csi_p2",
+              "unified_p4"
+            ]
+          }
+        },
+        "required": [
+          "capture_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "devices": {
+            "required": [
+              "phone",
+              "csi_receiver"
+            ]
+          },
+          "assembly": {
+            "required": [
+              "phone_assembly_id",
+              "receiver_assembly_id"
+            ]
+          },
+          "timebases": {
+            "required": [
+              "phone",
+              "csi"
+            ]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "session_id": {
       "type": "string",
@@ -24,6 +64,26 @@
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "capture_stage": {
+      "enum": [
+        "phone_only_p1",
+        "phone_csi_p2",
+        "unified_p4"
+      ]
+    },
+    "status": {
+      "enum": [
+        "recording",
+        "completed",
+        "interrupted",
+        "failed",
+        "validation_failed"
+      ]
     },
     "git": {
       "type": "object",
@@ -44,8 +104,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "phone",
-        "csi_receiver"
+        "phone"
       ],
       "properties": {
         "phone": {
@@ -92,8 +151,7 @@
       "type": "object",
       "additionalProperties": true,
       "required": [
-        "phone_assembly_id",
-        "receiver_assembly_id"
+        "phone_assembly_id"
       ],
       "properties": {
         "phone_assembly_id": {
@@ -108,8 +166,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "phone",
-        "csi"
+        "phone"
       ],
       "properties": {
         "phone": {
@@ -149,6 +206,44 @@
     "coordinate_convention": {
       "type": "string",
       "const": "schemas/session-format/coordinate_frames.md"
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "started_monotonic_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ended_monotonic_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "video_frame_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "video_dropped_frame_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ar_frame_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "face_anchor_sample_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "imu_sample_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     },
     "files": {
       "type": "array",
