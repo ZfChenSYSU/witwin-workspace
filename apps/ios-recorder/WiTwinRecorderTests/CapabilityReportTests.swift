@@ -349,6 +349,13 @@ final class CapabilityReportTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["WITWIN_RUN_LIVE_UDP"] == "1" else {
             throw XCTSkip("设置 WITWIN_RUN_LIVE_UDP=1 后才运行实时局域网发包测试。")
         }
+        let durationText =
+            ProcessInfo.processInfo.environment["WITWIN_UDP_DURATION_SECONDS"] ?? "10"
+        guard let durationSeconds = UInt64(durationText),
+              (1...600).contains(durationSeconds) else {
+            XCTFail("WITWIN_UDP_DURATION_SECONDS 必须是 1 到 600 之间的整数。")
+            return
+        }
         let documents = try FileManager.default.url(
             for: .documentDirectory,
             in: .userDomainMask,
@@ -380,7 +387,7 @@ final class CapabilityReportTests: XCTestCase {
         )
         try sender.start()
         await fulfillment(of: [ready], timeout: 10)
-        try await Task.sleep(nanoseconds: 10_000_000_000)
+        try await Task.sleep(nanoseconds: durationSeconds * 1_000_000_000)
 
         let stopped = expectation(description: "UDP sender stopped")
         var result: Result<UDPProbeStatistics, Error>?
@@ -391,7 +398,7 @@ final class CapabilityReportTests: XCTestCase {
         await fulfillment(of: [stopped], timeout: 5)
 
         let statistics = try XCTUnwrap(result).get()
-        XCTAssertGreaterThan(statistics.successfulPackets, 1_800)
+        XCTAssertGreaterThan(statistics.successfulPackets, Int(durationSeconds) * 180)
         XCTAssertEqual(statistics.failedPackets, 0)
         XCTAssertEqual(
             statistics.achievedBitrateBitsPerSecond,
@@ -402,12 +409,19 @@ final class CapabilityReportTests: XCTestCase {
     }
 
     @MainActor
-    func testLiveP2RecorderFiveSecondPhysicalDevice() async throws {
+    func testLiveP2RecorderPhysicalDevice() async throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("P2 联合采集测试必须在支持 ARKit 的真机运行。")
         #else
         guard ProcessInfo.processInfo.environment["WITWIN_RUN_LIVE_UDP"] == "1" else {
             throw XCTSkip("设置 WITWIN_RUN_LIVE_UDP=1 后才运行实时 P2 联合采集测试。")
+        }
+        let durationText =
+            ProcessInfo.processInfo.environment["WITWIN_RECORDER_DURATION_SECONDS"] ?? "5"
+        guard let durationSeconds = UInt64(durationText),
+              (1...120).contains(durationSeconds) else {
+            XCTFail("WITWIN_RECORDER_DURATION_SECONDS 必须是 1 到 120 之间的整数。")
+            return
         }
         let documents = try FileManager.default.url(
             for: .documentDirectory,
@@ -424,11 +438,17 @@ final class CapabilityReportTests: XCTestCase {
         let recorder = SessionRecorder()
         recorder.start(
             phoneAssemblyID: "automated-p2-test-rig",
-            udpConfiguration: .experimentalDefault
+            udpConfiguration: UDPProbeConfiguration(
+                host: ProcessInfo.processInfo.environment["WITWIN_UDP_HOST"]
+                    ?? UDPProbeConfiguration.defaultHost,
+                port: UDPProbeConfiguration.defaultPort,
+                bitrateBitsPerSecond: UDPProbeConfiguration.defaultBitrateBitsPerSecond,
+                datagramBytes: UDPProbeConfiguration.defaultDatagramBytes
+            )
         )
         try await waitForRecorder(recorder, toEnter: .recording, timeout: 15)
-        try await Task.sleep(nanoseconds: 5_000_000_000)
-        recorder.stop(reason: "xctest_p2_five_second_smoke")
+        try await Task.sleep(nanoseconds: durationSeconds * 1_000_000_000)
+        recorder.stop(reason: "xctest_p2_\(durationSeconds)_second_smoke")
         try await waitForRecorderToFinish(recorder, timeout: 30)
 
         XCTAssertEqual(recorder.state, .completed, recorder.statusMessage)
@@ -437,7 +457,10 @@ final class CapabilityReportTests: XCTestCase {
         XCTAssertGreaterThan(report.statistics.videoFrameCount, 0)
         XCTAssertGreaterThan(report.statistics.arFrameCount, 0)
         XCTAssertGreaterThan(report.statistics.imuSampleCount, 0)
-        XCTAssertGreaterThan(report.statistics.udpSuccessfulPacketCount, 500)
+        XCTAssertGreaterThan(
+            report.statistics.udpSuccessfulPacketCount,
+            Int(durationSeconds) * 100
+        )
         XCTAssertEqual(report.statistics.udpFailedPacketCount, 0)
         XCTAssertEqual(report.statistics.udpSequenceGapCount, 0)
 
