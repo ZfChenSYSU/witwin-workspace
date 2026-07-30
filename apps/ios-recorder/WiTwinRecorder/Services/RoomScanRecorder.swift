@@ -169,6 +169,7 @@ final class RoomScanRecorder: NSObject {
 
     private func record(_ frame: ARFrame) {
         guard acceptingFrames else { return }
+        let callbackPhoneMonotonicNanoseconds = DispatchTime.now().uptimeNanoseconds
 
         do {
             try configureVideoIfNeeded(for: frame.capturedImage)
@@ -206,6 +207,7 @@ final class RoomScanRecorder: NSObject {
             let intrinsics = MatrixFormatting.rowMajor(frame.camera.intrinsics)
             var row = [
                 Self.decimal(frame.timestamp),
+                String(callbackPhoneMonotonicNanoseconds),
                 String(currentFrameID),
                 String(currentFrameID),
                 Self.decimal(videoPTSSeconds),
@@ -230,12 +232,14 @@ final class RoomScanRecorder: NSObject {
     private func recordFaceAnchors(_ anchors: [ARAnchor], event: String) {
         guard acceptingFrames else { return }
         let timestamp = session.currentFrame?.timestamp ?? ProcessInfo.processInfo.systemUptime
+        let callbackPhoneMonotonicNanoseconds = DispatchTime.now().uptimeNanoseconds
         let associatedFrameID = max(0, frameID - 1)
 
         for faceAnchor in anchors.compactMap({ $0 as? ARFaceAnchor }) {
             do {
                 var row = [
                     Self.decimal(timestamp),
+                    String(callbackPhoneMonotonicNanoseconds),
                     String(associatedFrameID),
                     faceAnchor.identifier.uuidString,
                     faceAnchor.isTracked ? "true" : "false",
@@ -324,6 +328,7 @@ private extension RoomScanRecorder {
 
     static let arHeader = [
         "timestamp_seconds",
+        "callback_phone_monotonic_ns",
         "frame_id",
         "video_frame_id",
         "video_pts_seconds",
@@ -336,6 +341,7 @@ private extension RoomScanRecorder {
 
     static let faceHeader = [
         "timestamp_seconds",
+        "callback_phone_monotonic_ns",
         "frame_id",
         "anchor_id",
         "is_tracked",
@@ -346,4 +352,3 @@ private extension RoomScanRecorder {
         String(format: "%.9f", Double(value))
     }
 }
-

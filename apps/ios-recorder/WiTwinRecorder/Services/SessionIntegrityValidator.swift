@@ -50,6 +50,17 @@ enum SessionIntegrityValidator {
             directory.appendingPathComponent("events.csv"),
             errors: &errors
         )
+        let captureStage = metadataCaptureStage(
+            directory.appendingPathComponent("metadata.json")
+        )
+        let udpURL = directory.appendingPathComponent("udp_tx.csv")
+        let hasUDPLog = FileManager.default.fileExists(atPath: udpURL.path)
+        if captureStage == CaptureStage.phoneUDPProbeP2.rawValue, !hasUDPLog {
+            errors.append("phone_udp_p2 会话缺少必需文件：udp_tx.csv")
+        }
+        let udp = hasUDPLog
+            ? try inspectUDP(udpURL, errors: &errors, warnings: &warnings)
+            : UDPInspection.empty
 
         let videoURL = directory.appendingPathComponent("rear_video.mov")
         let videoBytes = fileSize(videoURL)
@@ -93,7 +104,12 @@ enum SessionIntegrityValidator {
                 faceAnchorSampleCount: face.sampleCount,
                 faceTrackedSampleCount: face.trackedCount,
                 faceTrackedRatio: face.trackedRatio,
-                eventCount: eventCount
+                eventCount: eventCount,
+                udpPacketCount: udp.packetCount,
+                udpSuccessfulPacketCount: udp.successfulPacketCount,
+                udpFailedPacketCount: udp.failedPacketCount,
+                udpSequenceGapCount: udp.sequenceGapCount,
+                udpAchievedBitrateBitsPerSecond: udp.achievedBitrateBitsPerSecond
             )
         )
         return report
@@ -108,8 +124,8 @@ enum SessionIntegrityValidator {
             return .empty
         }
         let rows = try CSVRows.read(url)
-        guard rows.header.count == 33 else {
-            errors.append("ar_frames.csv 表头列数不是预期的 33。")
+        guard rows.header.count == 34 else {
+            errors.append("ar_frames.csv 表头列数不是预期的 34。")
             return .empty
         }
 
@@ -128,21 +144,24 @@ enum SessionIntegrityValidator {
                 continue
             }
             timestamps.append(timestamp)
+            if UInt64(row[1]) == nil {
+                errors.append("ar_frames.csv 第 \(index + 2) 行统一手机时钟无效。")
+            }
 
-            if row[4] == "true" {
+            if row[5] == "true" {
                 videoCount += 1
             } else {
                 droppedCount += 1
             }
 
-            let numericFields = row[5..<30]
+            let numericFields = row[6..<31]
             if numericFields.count != 25 || numericFields.contains(where: {
                 guard let value = Double($0) else { return true }
                 return !value.isFinite
             }) {
                 errors.append("ar_frames.csv 第 \(index + 2) 行矩阵或内参包含无效数值。")
             }
-            trackingStates[row[32], default: 0] += 1
+            trackingStates[row[33], default: 0] += 1
         }
 
         checkStrictlyIncreasing(
@@ -184,8 +203,8 @@ enum SessionIntegrityValidator {
             return .empty
         }
         let rows = try CSVRows.read(url)
-        guard rows.header.count == 8 else {
-            errors.append("imu.csv 表头列数不是预期的 8。")
+        guard rows.header.count == 9 else {
+            errors.append("imu.csv 表头列数不是预期的 9。")
             return .empty
         }
 
@@ -199,9 +218,12 @@ enum SessionIntegrityValidator {
                 errors.append("imu.csv 第 \(index + 2) 行时间戳无效。")
                 continue
             }
-            let sensor = row[2]
+            if UInt64(row[1]) == nil {
+                errors.append("imu.csv 第 \(index + 2) 行统一手机时钟无效。")
+            }
+            let sensor = row[3]
             timestampsBySensor[sensor, default: []].append(timestamp)
-            if row[3...5].contains(where: {
+            if row[4...6].contains(where: {
                 guard let value = Double($0) else { return true }
                 return !value.isFinite
             }) {
@@ -252,8 +274,8 @@ enum SessionIntegrityValidator {
             return .empty
         }
         let rows = try CSVRows.read(url)
-        guard rows.header.count == 21 else {
-            errors.append("face_anchors.csv 表头列数不是预期的 21。")
+        guard rows.header.count == 22 else {
+            errors.append("face_anchors.csv 表头列数不是预期的 22。")
             return .empty
         }
 
@@ -269,10 +291,13 @@ enum SessionIntegrityValidator {
             } else {
                 errors.append("face_anchors.csv 第 \(index + 2) 行时间戳无效。")
             }
-            if row[3] == "true" {
+            if UInt64(row[1]) == nil {
+                errors.append("face_anchors.csv 第 \(index + 2) 行统一手机时钟无效。")
+            }
+            if row[4] == "true" {
                 trackedCount += 1
             }
-            if row[5..<21].contains(where: {
+            if row[6..<22].contains(where: {
                 guard let value = Double($0) else { return true }
                 return !value.isFinite
             }) {
@@ -308,6 +333,95 @@ enum SessionIntegrityValidator {
             errors.append("events.csv 缺少 session_stopped。")
         }
         return rows.data.count
+    }
+
+    private static func inspectUDP(
+        _ url: URL,
+        errors: inout [String],
+        warnings: inout [String]
+    ) throws -> UDPInspection {
+        let rows = try CSVRows.read(url)
+        guard rows.header.count == 9 else {
+            errors.append("udp_tx.csv 表头列数不是预期的 9。")
+            return .empty
+        }
+
+        var previousSequence: UInt64?
+        var firstPhoneNanoseconds: UInt64?
+        var lastPhoneNanoseconds: UInt64?
+        var successfulPackets = 0
+        var failedPackets = 0
+        var successfulBytes = 0
+        var sequenceGaps = 0
+
+        for (index, row) in rows.data.enumerated() {
+            guard row.count == rows.header.count else {
+                errors.append("udp_tx.csv 第 \(index + 2) 行列数错误。")
+                continue
+            }
+            guard let sequence = UInt64(row[0]),
+                  let phoneNanoseconds = UInt64(row[1]),
+                  let datagramBytes = Int(row[4]), datagramBytes > 0 else {
+                errors.append("udp_tx.csv 第 \(index + 2) 行字段无效。")
+                continue
+            }
+
+            if let previousSequence {
+                if sequence <= previousSequence {
+                    errors.append("udp_tx.csv sequence 不是严格递增。")
+                } else if sequence > previousSequence + 1 {
+                    sequenceGaps += Int(sequence - previousSequence - 1)
+                }
+            }
+            previousSequence = sequence
+            firstPhoneNanoseconds = firstPhoneNanoseconds ?? phoneNanoseconds
+            lastPhoneNanoseconds = phoneNanoseconds
+
+            if row[7] == "accepted_by_local_udp_stack" {
+                successfulPackets += 1
+                successfulBytes += datagramBytes
+            } else {
+                failedPackets += 1
+            }
+        }
+
+        if rows.data.isEmpty {
+            errors.append("udp_tx.csv 没有数据行。")
+        }
+        if sequenceGaps > 0 {
+            warnings.append("udp_tx.csv 存在 \(sequenceGaps) 个发送序号缺口。")
+        }
+        if failedPackets > 2 {
+            warnings.append("udp_tx.csv 有 \(failedPackets) 个本地发送失败包。")
+        }
+        let durationSeconds: Double
+        if let firstPhoneNanoseconds, let lastPhoneNanoseconds,
+           lastPhoneNanoseconds > firstPhoneNanoseconds {
+            durationSeconds = Double(lastPhoneNanoseconds - firstPhoneNanoseconds)
+                / 1_000_000_000
+        } else {
+            durationSeconds = 0
+        }
+        let bitrate = durationSeconds > 0
+            ? Double(successfulBytes * 8) / durationSeconds
+            : 0
+
+        return UDPInspection(
+            packetCount: rows.data.count,
+            successfulPacketCount: successfulPackets,
+            failedPacketCount: failedPackets,
+            sequenceGapCount: sequenceGaps,
+            achievedBitrateBitsPerSecond: bitrate
+        )
+    }
+
+    private static func metadataCaptureStage(_ url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: Any] else {
+            return nil
+        }
+        return dictionary["capture_stage"] as? String
     }
 
     private static func checkStrictlyIncreasing(
@@ -419,6 +533,22 @@ private struct FaceInspection {
     }
 
     static let empty = FaceInspection(sampleCount: 0, trackedCount: 0)
+}
+
+private struct UDPInspection {
+    let packetCount: Int
+    let successfulPacketCount: Int
+    let failedPacketCount: Int
+    let sequenceGapCount: Int
+    let achievedBitrateBitsPerSecond: Double
+
+    static let empty = UDPInspection(
+        packetCount: 0,
+        successfulPacketCount: 0,
+        failedPacketCount: 0,
+        sequenceGapCount: 0,
+        achievedBitrateBitsPerSecond: 0
+    )
 }
 
 enum ISO8601Timestamp {

@@ -51,11 +51,48 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "capture_stage": {
+            "const": "phone_udp_p2"
+          }
+        },
+        "required": [
+          "capture_stage"
+        ]
+      },
+      "then": {
+        "required": [
+          "capture"
+        ],
+        "properties": {
+          "capture": {
+            "required": [
+              "udp"
+            ]
+          },
+          "files": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "const": "udp_transmit_log"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            }
+          }
+        }
+      }
     }
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1.0"
+      "const": "1.2.0"
     },
     "session_id": {
       "type": "string",
@@ -72,6 +109,7 @@
     "capture_stage": {
       "enum": [
         "phone_only_p1",
+        "phone_udp_p2",
         "phone_csi_p2",
         "unified_p4"
       ]
@@ -242,6 +280,55 @@
         "imu_sample_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "udp": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "target_host",
+            "target_port",
+            "configured_bitrate_bits_per_second",
+            "datagram_bytes",
+            "attempted_packet_count",
+            "successful_packet_count",
+            "failed_packet_count",
+            "achieved_bitrate_bits_per_second"
+          ],
+          "properties": {
+            "target_host": {
+              "type": "string"
+            },
+            "target_port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "configured_bitrate_bits_per_second": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "datagram_bytes": {
+              "type": "integer",
+              "minimum": 32,
+              "maximum": 1400
+            },
+            "attempted_packet_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "successful_packet_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed_packet_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "achieved_bitrate_bits_per_second": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
         }
       }
     },

@@ -166,14 +166,15 @@ final class CapabilityReportTests: XCTestCase {
                 maximumThermalState: "fair",
                 thermalStateAtEnd: "fair",
                 availableCapacityBytesAtStart: 1_000_000,
-                availableCapacityBytesAtEnd: 900_000
+                availableCapacityBytesAtEnd: 900_000,
+                udp: nil
             ),
             files: []
         )
 
         let data = try SessionJSON.encode(metadata)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object["schema_version"] as? String, "1.1.0")
+        XCTAssertEqual(object["schema_version"] as? String, "1.2.0")
         XCTAssertEqual(object["capture_stage"] as? String, "phone_only_p1")
         let devices = try XCTUnwrap(object["devices"] as? [String: Any])
         XCTAssertNotNil(devices["phone"])
@@ -192,13 +193,13 @@ final class CapabilityReportTests: XCTestCase {
         try Data([0, 1, 2, 3]).write(to: directory.appendingPathComponent("rear_video.mov"))
 
         let arHeader = [
-            "timestamp_seconds", "frame_id", "video_frame_id", "video_pts_seconds",
-            "video_appended"
+            "timestamp_seconds", "callback_phone_monotonic_ns", "frame_id",
+            "video_frame_id", "video_pts_seconds", "video_appended"
         ] + (0..<16).map { "m\($0)" } + (0..<9).map { "k\($0)" } + [
             "image_width", "image_height", "tracking_state"
         ]
         let arRow = [
-            "100.0", "0", "0", "0.0", "true"
+            "100.0", "100000000000", "0", "0", "0.0", "true"
         ] + (0..<16).map { $0 % 5 == 0 ? "1" : "0" } + [
             "1000", "0", "500", "0", "1000", "500", "0", "0", "1",
             "1920", "1440", "normal"
@@ -210,7 +211,8 @@ final class CapabilityReportTests: XCTestCase {
         )
 
         let faceHeader = [
-            "timestamp_seconds", "frame_id", "anchor_id", "is_tracked", "event"
+            "timestamp_seconds", "callback_phone_monotonic_ns", "frame_id",
+            "anchor_id", "is_tracked", "event"
         ] + (0..<16).map { "f\($0)" }
         try writeCSV(
             header: faceHeader,
@@ -219,12 +221,13 @@ final class CapabilityReportTests: XCTestCase {
         )
 
         let imuHeader = [
-            "timestamp_seconds", "sample_id", "sensor_type", "x", "y", "z", "w", "accuracy"
+            "timestamp_seconds", "callback_phone_monotonic_ns", "sample_id",
+            "sensor_type", "x", "y", "z", "w", "accuracy"
         ]
         let imuRows = [
-            ["100.0", "0", "accelerometer", "0", "0", "1", "", ""],
-            ["100.0", "1", "gyroscope", "0", "0", "0", "", ""],
-            ["100.0", "2", "device_motion_attitude_quaternion", "0", "0", "0", "1", ""]
+            ["100.0", "100000000001", "0", "accelerometer", "0", "0", "1", "", ""],
+            ["100.0", "100000000002", "1", "gyroscope", "0", "0", "0", "", ""],
+            ["100.0", "100000000003", "2", "device_motion_attitude_quaternion", "0", "0", "0", "1", ""]
         ]
         try writeCSV(
             header: imuHeader,
@@ -248,6 +251,20 @@ final class CapabilityReportTests: XCTestCase {
         XCTAssertEqual(report.statistics.arFrameCount, 1)
         XCTAssertEqual(report.statistics.videoFrameCount, 1)
         XCTAssertEqual(report.statistics.imuSampleCount, 3)
+
+        try Data(#"{"capture_stage":"phone_udp_p2"}"#.utf8).write(
+            to: directory.appendingPathComponent("metadata.json")
+        )
+        let missingUDPReport = try SessionIntegrityValidator.validate(
+            sessionID: "session_test_missing_udp",
+            directory: directory
+        )
+        XCTAssertFalse(missingUDPReport.passed)
+        XCTAssertTrue(
+            missingUDPReport.errors.contains {
+                $0.contains("phone_udp_p2") && $0.contains("udp_tx.csv")
+            }
+        )
     }
 
     @MainActor
@@ -281,6 +298,154 @@ final class CapabilityReportTests: XCTestCase {
         XCTAssertGreaterThan(report.statistics.arFrameCount, 0)
         XCTAssertGreaterThan(report.statistics.imuSampleCount, 0)
         XCTAssertEqual(report.statistics.videoMappingMissingRate, 0, accuracy: 0.01)
+        #endif
+    }
+
+    func testUDPProbePacketUsesStableNetworkByteOrder() throws {
+        let packet = try UDPProbePacket.encode(
+            sessionID: "udp_test",
+            sequence: 0x0102030405060708,
+            phoneMonotonicNanoseconds: 0x1112131415161718,
+            datagramBytes: 1_200
+        )
+
+        XCTAssertEqual(packet.count, 1_200)
+        XCTAssertEqual(Data(packet[0..<4]), Data("WTWN".utf8))
+        XCTAssertEqual(packet[4], 1)
+        XCTAssertEqual(packet[5], 0)
+        XCTAssertEqual(Array(packet[6..<8]), [0, 32])
+        XCTAssertEqual(
+            Array(packet[16..<24]),
+            [1, 2, 3, 4, 5, 6, 7, 8]
+        )
+        XCTAssertEqual(
+            Array(packet[24..<32]),
+            [17, 18, 19, 20, 21, 22, 23, 24]
+        )
+        XCTAssertEqual(UDPProbePacket.sessionHashHex("udp_test").count, 16)
+    }
+
+    func testUDPProbeAcknowledgementHeaderRoundTrips() throws {
+        let sessionID = "session_20260730_120000.preflight"
+        let packet = try UDPProbePacket.encode(
+            sessionID: sessionID,
+            sequence: 4,
+            phoneMonotonicNanoseconds: 123_456_789,
+            datagramBytes: UDPProbePacket.headerLength,
+            flags: .acknowledgement
+        )
+
+        let header = try XCTUnwrap(UDPProbePacket.decodeHeader(packet))
+        XCTAssertEqual(header.flags, .acknowledgement)
+        XCTAssertEqual(header.sessionHash, UDPProbePacket.sessionHash(sessionID))
+        XCTAssertEqual(header.sequence, 4)
+        XCTAssertEqual(header.phoneMonotonicNanoseconds, 123_456_789)
+    }
+
+    func testLiveUDPProbeToPicoScenesHost() async throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("实时 UDP 上行测试必须在 iPhone 真机运行。")
+        #else
+        guard ProcessInfo.processInfo.environment["WITWIN_RUN_LIVE_UDP"] == "1" else {
+            throw XCTSkip("设置 WITWIN_RUN_LIVE_UDP=1 后才运行实时局域网发包测试。")
+        }
+        let documents = try FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let root = documents.appendingPathComponent("UDPTests", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let sessionID = "udp_test_\(Int(Date().timeIntervalSince1970))"
+        let directory = root.appendingPathComponent(sessionID, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+
+        let ready = expectation(description: "UDP Wi-Fi path ready")
+        let sender = try UDPProbeSender(
+            configuration: UDPProbeConfiguration(
+                host: ProcessInfo.processInfo.environment["WITWIN_UDP_HOST"]
+                    ?? UDPProbeConfiguration.defaultHost,
+                port: UDPProbeConfiguration.defaultPort,
+                bitrateBitsPerSecond: UDPProbeConfiguration.defaultBitrateBitsPerSecond,
+                datagramBytes: UDPProbeConfiguration.defaultDatagramBytes
+            ),
+            sessionID: sessionID,
+            logURL: directory.appendingPathComponent("udp_tx.csv"),
+            stateHandler: { state in
+                if state == .sending {
+                    ready.fulfill()
+                }
+            }
+        )
+        try sender.start()
+        await fulfillment(of: [ready], timeout: 10)
+        try await Task.sleep(nanoseconds: 10_000_000_000)
+
+        let stopped = expectation(description: "UDP sender stopped")
+        var result: Result<UDPProbeStatistics, Error>?
+        sender.stop {
+            result = $0
+            stopped.fulfill()
+        }
+        await fulfillment(of: [stopped], timeout: 5)
+
+        let statistics = try XCTUnwrap(result).get()
+        XCTAssertGreaterThan(statistics.successfulPackets, 1_800)
+        XCTAssertEqual(statistics.failedPackets, 0)
+        XCTAssertEqual(
+            statistics.achievedBitrateBitsPerSecond,
+            2_000_000,
+            accuracy: 100_000
+        )
+        #endif
+    }
+
+    @MainActor
+    func testLiveP2RecorderFiveSecondPhysicalDevice() async throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("P2 联合采集测试必须在支持 ARKit 的真机运行。")
+        #else
+        guard ProcessInfo.processInfo.environment["WITWIN_RUN_LIVE_UDP"] == "1" else {
+            throw XCTSkip("设置 WITWIN_RUN_LIVE_UDP=1 后才运行实时 P2 联合采集测试。")
+        }
+        let documents = try FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        guard FileManager.default.fileExists(
+            atPath: documents.appendingPathComponent("capabilities.json").path
+        ) else {
+            throw XCTSkip("真机 App 容器内没有 P0 capabilities.json。")
+        }
+
+        let recorder = SessionRecorder()
+        recorder.start(
+            phoneAssemblyID: "automated-p2-test-rig",
+            udpConfiguration: .experimentalDefault
+        )
+        try await waitForRecorder(recorder, toEnter: .recording, timeout: 15)
+        try await Task.sleep(nanoseconds: 5_000_000_000)
+        recorder.stop(reason: "xctest_p2_five_second_smoke")
+        try await waitForRecorderToFinish(recorder, timeout: 30)
+
+        XCTAssertEqual(recorder.state, .completed, recorder.statusMessage)
+        let report = try XCTUnwrap(recorder.validationReport)
+        XCTAssertTrue(report.passed, report.errors.joined(separator: "\n"))
+        XCTAssertGreaterThan(report.statistics.videoFrameCount, 0)
+        XCTAssertGreaterThan(report.statistics.arFrameCount, 0)
+        XCTAssertGreaterThan(report.statistics.imuSampleCount, 0)
+        XCTAssertGreaterThan(report.statistics.udpSuccessfulPacketCount, 500)
+        XCTAssertEqual(report.statistics.udpFailedPacketCount, 0)
+        XCTAssertEqual(report.statistics.udpSequenceGapCount, 0)
+
+        let sessionURL = try XCTUnwrap(recorder.lastSessionURL)
+        let metadata = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: sessionURL.appendingPathComponent("metadata.json"))
+        ) as? [String: Any]
+        XCTAssertEqual(metadata?["capture_stage"] as? String, "phone_udp_p2")
         #endif
     }
 

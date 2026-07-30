@@ -4,11 +4,19 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var probe = CapabilityProbeService()
     @StateObject private var recorder = SessionRecorder()
+    @StateObject private var udpProbe = UDPProbeService()
     @State private var phoneAssemblyID = "phone-rig-001"
+    @State private var udpHost = UDPProbeConfiguration.defaultHost
+    @State private var udpPort = UDPProbeConfiguration.defaultPort
+    @State private var udpBitrate = UDPProbeConfiguration.defaultBitrateBitsPerSecond
+    @State private var udpDatagramBytes = UDPProbeConfiguration.defaultDatagramBytes
+    @State private var udpDurationSeconds = 10
+    @State private var includeUDPInRecorder = false
 
     var body: some View {
         NavigationStack {
             List {
+                p2UDPProbeSection
                 p1RecordingSection
                 p1ResultSection
 
@@ -52,8 +60,98 @@ struct ContentView: View {
             .onChange(of: scenePhase) { phase in
                 if phase != .active {
                     recorder.handleAppBecameInactive()
+                    udpProbe.handleAppBecameInactive()
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var p2UDPProbeSection: some View {
+        Section("P2 UDP 上行独立测试") {
+            Label(udpProbe.statusMessage, systemImage: udpStatusSymbol)
+                .foregroundStyle(udpStatusColor)
+
+            TextField("目标 IP 或主机名", text: $udpHost)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .disabled(udpProbe.isRunning)
+
+            TextField("UDP 端口", value: $udpPort, format: .number)
+                .keyboardType(.numberPad)
+                .disabled(udpProbe.isRunning)
+            Stepper(
+                "码率：\(Double(udpBitrate) / 1_000_000, specifier: "%.1f") Mbit/s",
+                value: $udpBitrate,
+                in: 100_000...10_000_000,
+                step: 100_000
+            )
+            .disabled(udpProbe.isRunning)
+            Stepper(
+                "数据报：\(udpDatagramBytes) B",
+                value: $udpDatagramBytes,
+                in: 32...1_400,
+                step: 8
+            )
+            .disabled(udpProbe.isRunning)
+            Stepper(
+                "时长：\(udpDurationSeconds) s",
+                value: $udpDurationSeconds,
+                in: 1...600
+            )
+            .disabled(udpProbe.isRunning)
+
+            HStack {
+                Button {
+                    udpProbe.start(
+                        configuration: UDPProbeConfiguration(
+                            host: udpHost,
+                            port: udpPort,
+                            bitrateBitsPerSecond: udpBitrate,
+                            datagramBytes: udpDatagramBytes
+                        ),
+                        durationSeconds: udpDurationSeconds
+                    )
+                } label: {
+                    Label("开始发包", systemImage: "antenna.radiowaves.left.and.right")
+                }
+                .disabled(udpProbe.isRunning || recorder.isBusy)
+
+                Button(role: .destructive) {
+                    udpProbe.stop()
+                } label: {
+                    Label("停止", systemImage: "stop.circle")
+                }
+                .disabled(!udpProbe.isRunning)
+            }
+
+            if udpProbe.statistics.attemptedPackets > 0 {
+                valueRow("HELLO 次数", "\(udpProbe.statistics.handshakeAttempts)")
+                boolRow("已收到 ACK", udpProbe.statistics.acknowledgementReceived)
+                valueRow("尝试包数", "\(udpProbe.statistics.attemptedPackets)")
+                valueRow("本地发送成功", "\(udpProbe.statistics.successfulPackets)")
+                valueRow("本地发送失败", "\(udpProbe.statistics.failedPackets)")
+                valueRow(
+                    "实际码率",
+                    String(
+                        format: "%.3f Mbit/s",
+                        udpProbe.statistics.achievedBitrateBitsPerSecond / 1_000_000
+                    )
+                )
+            } else if udpProbe.statistics.handshakeAttempts > 0 {
+                valueRow("HELLO 次数", "\(udpProbe.statistics.handshakeAttempts)")
+                boolRow("已收到 ACK", udpProbe.statistics.acknowledgementReceived)
+            }
+
+            if let url = udpProbe.logFileURL {
+                ShareLink(item: url) {
+                    Label("导出 udp_tx.csv", systemImage: "square.and.arrow.up")
+                }
+            }
+
+            Text("首次默认使用 192.168.3.31:5201。开始持续发包前必须收到 Linux WTWN 接收器的 ACK；iPerf3 UDP 与 WTWN UDP 不能同时占用同一个端口。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -68,6 +166,14 @@ struct ContentView: View {
                 .autocorrectionDisabled()
                 .disabled(recorder.isBusy)
 
+            Toggle("同时发送 P2 UDP 上行", isOn: $includeUDPInRecorder)
+                .disabled(recorder.isBusy || udpProbe.isRunning)
+            if includeUDPInRecorder {
+                Text("使用上方配置：\(udpHost):\(udpPort)，\(udpDatagramBytes) B，\(Double(udpBitrate) / 1_000_000, specifier: "%.1f") Mbit/s")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             if recorder.state == .recording || recorder.state == .stopping {
                 LabeledContent("已采集", value: duration(recorder.elapsedSeconds))
                     .monospacedDigit()
@@ -75,11 +181,21 @@ struct ContentView: View {
 
             HStack {
                 Button {
-                    recorder.start(phoneAssemblyID: phoneAssemblyID)
+                    recorder.start(
+                        phoneAssemblyID: phoneAssemblyID,
+                        udpConfiguration: includeUDPInRecorder
+                            ? UDPProbeConfiguration(
+                                host: udpHost,
+                                port: udpPort,
+                                bitrateBitsPerSecond: udpBitrate,
+                                datagramBytes: udpDatagramBytes
+                            )
+                            : nil
+                    )
                 } label: {
                     Label("开始", systemImage: "record.circle")
                 }
-                .disabled(!recorder.canStart || probe.isRunning)
+                .disabled(!recorder.canStart || probe.isRunning || udpProbe.isRunning)
 
                 Button {
                     recorder.markEvent()
@@ -96,7 +212,7 @@ struct ContentView: View {
                 .disabled(!recorder.canStop)
             }
 
-            Text("首轮请连续采集 1 分钟；通过自动检查后再做 10 分钟稳定性测试。采集期间请保持 App 在前台。")
+            Text("代表性房间扫描建议 1–5 分钟，以覆盖完整、视角重叠和闭环完成为停止条件。采集期间请保持 App 在前台。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -169,6 +285,27 @@ struct ContentView: View {
         case .preparing, .stopping: return .blue
         case .recording: return .red
         case .completed: return .green
+        case .failed: return .red
+        }
+    }
+
+    private var udpStatusSymbol: String {
+        switch udpProbe.state {
+        case .idle: return "circle.dashed"
+        case .resolving: return "network"
+        case .ready, .handshaking, .sending: return "antenna.radiowaves.left.and.right"
+        case .stopping: return "stopwatch"
+        case .stopped: return "checkmark.circle.fill"
+        case .failed: return "xmark.octagon.fill"
+        }
+    }
+
+    private var udpStatusColor: Color {
+        switch udpProbe.state {
+        case .idle: return .secondary
+        case .resolving, .ready, .handshaking, .stopping: return .blue
+        case .sending: return .green
+        case .stopped: return .green
         case .failed: return .red
         }
     }

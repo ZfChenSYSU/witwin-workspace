@@ -35,6 +35,7 @@ final class MotionRecorder {
             url: sessionDirectory.appendingPathComponent("imu.csv"),
             header: [
                 "timestamp_seconds",
+                "callback_phone_monotonic_ns",
                 "sample_id",
                 "sensor_type",
                 "x",
@@ -66,8 +67,10 @@ final class MotionRecorder {
                     return
                 }
                 guard let sample else { return }
+                let callbackNanoseconds = DispatchTime.now().uptimeNanoseconds
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "accelerometer",
                     x: sample.acceleration.x,
                     y: sample.acceleration.y,
@@ -84,8 +87,10 @@ final class MotionRecorder {
                     return
                 }
                 guard let sample else { return }
+                let callbackNanoseconds = DispatchTime.now().uptimeNanoseconds
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "gyroscope",
                     x: sample.rotationRate.x,
                     y: sample.rotationRate.y,
@@ -105,9 +110,11 @@ final class MotionRecorder {
                     return
                 }
                 guard let sample else { return }
+                let callbackNanoseconds = DispatchTime.now().uptimeNanoseconds
 
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "device_motion_user_acceleration",
                     x: sample.userAcceleration.x,
                     y: sample.userAcceleration.y,
@@ -115,6 +122,7 @@ final class MotionRecorder {
                 )
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "device_motion_rotation_rate",
                     x: sample.rotationRate.x,
                     y: sample.rotationRate.y,
@@ -122,6 +130,7 @@ final class MotionRecorder {
                 )
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "device_motion_gravity",
                     x: sample.gravity.x,
                     y: sample.gravity.y,
@@ -129,6 +138,7 @@ final class MotionRecorder {
                 )
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "device_motion_attitude_quaternion",
                     x: sample.attitude.quaternion.x,
                     y: sample.attitude.quaternion.y,
@@ -137,6 +147,7 @@ final class MotionRecorder {
                 )
                 self.append(
                     timestamp: sample.timestamp,
+                    callbackPhoneMonotonicNanoseconds: callbackNanoseconds,
                     type: "device_motion_magnetic_field",
                     x: sample.magneticField.field.x,
                     y: sample.magneticField.field.y,
@@ -164,6 +175,7 @@ final class MotionRecorder {
 
     private func append(
         timestamp: TimeInterval,
+        callbackPhoneMonotonicNanoseconds: UInt64,
         type: String,
         x: Double,
         y: Double,
@@ -174,6 +186,7 @@ final class MotionRecorder {
         do {
             try writer.append([
                 Self.decimal(timestamp),
+                String(callbackPhoneMonotonicNanoseconds),
                 String(sampleID),
                 type,
                 Self.decimal(x),
@@ -215,4 +228,3 @@ final class MotionRecorder {
         String(format: "%.9f", Double(value))
     }
 }
-

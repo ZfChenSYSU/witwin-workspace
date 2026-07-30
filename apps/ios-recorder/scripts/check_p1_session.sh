@@ -34,14 +34,16 @@ done
 
 awk -F, '
   NR == 1 {
-    if (NF != 33) {
-      print "错误：ar_frames.csv 表头列数不是 33" > "/dev/stderr"
+    columns = NF
+    if (columns != 33 && columns != 34) {
+      print "错误：ar_frames.csv 表头列数不是兼容的 33 或 34" > "/dev/stderr"
       exit 1
     }
+    video_column = columns == 34 ? 6 : 5
     next
   }
   {
-    if (NF != 33) {
+    if (NF != columns) {
       print "错误：ar_frames.csv 第 " NR " 行列数错误" > "/dev/stderr"
       exit 1
     }
@@ -51,7 +53,7 @@ awk -F, '
     }
     previous = $1
     count += 1
-    if ($5 == "true") {
+    if ($(video_column) == "true") {
       video += 1
     } else {
       dropped += 1
@@ -68,14 +70,20 @@ awk -F, '
 
 awk -F, '
   NR == 1 {
-    if (NF != 8) {
-      print "错误：imu.csv 表头列数不是 8" > "/dev/stderr"
+    columns = NF
+    if (columns != 8 && columns != 9) {
+      print "错误：imu.csv 表头列数不是兼容的 8 或 9" > "/dev/stderr"
       exit 1
     }
+    sensor_column = columns == 9 ? 4 : 3
     next
   }
   {
-    sensor = $3
+    if (NF != columns) {
+      print "错误：imu.csv 第 " NR " 行列数错误" > "/dev/stderr"
+      exit 1
+    }
+    sensor = $(sensor_column)
     if (seen[sensor] && $1 <= previous[sensor]) {
       print "错误：IMU/" sensor " 时间戳不严格递增，行 " NR > "/dev/stderr"
       exit 1
@@ -96,6 +104,43 @@ awk -F, '
     }
   }
 ' "$session_dir/imu.csv"
+
+if [[ -f "$session_dir/udp_tx.csv" ]]; then
+  awk -F, '
+    NR == 1 {
+      if (NF != 9) {
+        print "错误：udp_tx.csv 表头列数不是 9" > "/dev/stderr"
+        exit 1
+      }
+      next
+    }
+    {
+      if (NF != 9) {
+        print "错误：udp_tx.csv 第 " NR " 行列数错误" > "/dev/stderr"
+        exit 1
+      }
+      if (count > 0 && $1 <= previous) {
+        print "错误：UDP sequence 不严格递增，行 " NR > "/dev/stderr"
+        exit 1
+      }
+      previous = $1
+      count += 1
+      if ($8 == "accepted_by_local_udp_stack") {
+        success += 1
+      } else {
+        failed += 1
+      }
+    }
+    END {
+      if (count == 0) {
+        print "错误：udp_tx.csv 没有数据" > "/dev/stderr"
+        exit 1
+      }
+      printf "UDP packets=%d, local_success=%d, local_failed=%d\n",
+        count, success, failed
+    }
+  ' "$session_dir/udp_tx.csv"
+fi
 
 if ! awk -F, 'NR > 1 && $3 == "session_started" { started=1 }
                NR > 1 && $3 == "session_stopped" { stopped=1 }

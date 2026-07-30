@@ -19,6 +19,9 @@
 		30000000000000000000000A /* MotionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* MotionRecorder.swift */; };
 		30000000000000000000000B /* SessionIntegrityValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* SessionIntegrityValidator.swift */; };
 		30000000000000000000000C /* SessionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* SessionRecorder.swift */; };
+		30000000000000000000000D /* UDPProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* UDPProbe.swift */; };
+		30000000000000000000000E /* UDPProbeSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* UDPProbeSender.swift */; };
+		30000000000000000000000F /* UDPProbeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* UDPProbeService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +50,9 @@
 		20000000000000000000000D /* MotionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRecorder.swift; sourceTree = "<group>"; };
 		20000000000000000000000E /* SessionIntegrityValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionIntegrityValidator.swift; sourceTree = "<group>"; };
 		20000000000000000000000F /* SessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecorder.swift; sourceTree = "<group>"; };
+		200000000000000000000010 /* UDPProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDPProbe.swift; sourceTree = "<group>"; };
+		200000000000000000000011 /* UDPProbeSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDPProbeSender.swift; sourceTree = "<group>"; };
+		200000000000000000000012 /* UDPProbeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDPProbeService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +108,7 @@
 			children = (
 				200000000000000000000002 /* CapabilityReport.swift */,
 				200000000000000000000009 /* SessionModels.swift */,
+				200000000000000000000010 /* UDPProbe.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -116,6 +123,8 @@
 				20000000000000000000000D /* MotionRecorder.swift */,
 				20000000000000000000000E /* SessionIntegrityValidator.swift */,
 				20000000000000000000000F /* SessionRecorder.swift */,
+				200000000000000000000011 /* UDPProbeSender.swift */,
+				200000000000000000000012 /* UDPProbeService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -253,6 +262,9 @@
 				30000000000000000000000A /* MotionRecorder.swift in Sources */,
 				30000000000000000000000B /* SessionIntegrityValidator.swift in Sources */,
 				30000000000000000000000C /* SessionRecorder.swift in Sources */,
+				30000000000000000000000D /* UDPProbe.swift in Sources */,
+				30000000000000000000000E /* UDPProbeSender.swift in Sources */,
+				30000000000000000000000F /* UDPProbeService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,7 +407,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.witwin.recorder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -416,7 +428,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.witwin.recorder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

@@ -33,6 +33,8 @@ final class SessionRecorder: ObservableObject {
 
     private var roomRecorder: RoomScanRecorder?
     private var motionRecorder: MotionRecorder?
+    private var udpSender: UDPProbeSender?
+    private var udpConfiguration: UDPProbeConfiguration?
     private var eventWriter: CSVWriter?
     private var sessionDirectory: URL?
     private var sessionID: String?
@@ -47,9 +49,11 @@ final class SessionRecorder: ObservableObject {
     private var stopStatus = "completed"
     private var pendingRoomStatistics: RoomScanStatistics?
     private var pendingMotionStatistics: MotionStatistics?
+    private var pendingUDPStatistics: UDPProbeStatistics?
     private var pendingStopError: Error?
     private var waitingForRoomStop = false
     private var waitingForMotionStop = false
+    private var waitingForUDPStop = false
 
     var isBusy: Bool {
         state == .preparing || state == .recording || state == .stopping
@@ -63,7 +67,10 @@ final class SessionRecorder: ObservableObject {
         state == .recording
     }
 
-    func start(phoneAssemblyID: String) {
+    func start(
+        phoneAssemblyID: String,
+        udpConfiguration: UDPProbeConfiguration? = nil
+    ) {
         guard canStart else { return }
         state = .preparing
         statusMessage = "正在准备会话目录与采集模块…"
@@ -76,7 +83,10 @@ final class SessionRecorder: ObservableObject {
                 guard await Self.requestCameraAuthorizationIfNeeded() else {
                     throw SessionRecorderError.cameraPermissionUnavailable
                 }
-                try prepareAndStart(phoneAssemblyID: sanitizedAssemblyID)
+                try prepareAndStart(
+                    phoneAssemblyID: sanitizedAssemblyID,
+                    udpConfiguration: udpConfiguration
+                )
             } catch {
                 failBeforeRecording(error)
             }
@@ -102,9 +112,11 @@ final class SessionRecorder: ObservableObject {
 
         pendingRoomStatistics = nil
         pendingMotionStatistics = nil
+        pendingUDPStatistics = nil
         pendingStopError = nil
         waitingForRoomStop = roomRecorder != nil
         waitingForMotionStop = motionRecorder != nil
+        waitingForUDPStop = udpSender != nil
 
         roomRecorder?.stop { [weak self] result in
             Task { @MainActor in
@@ -132,6 +144,19 @@ final class SessionRecorder: ObservableObject {
                 self.finishStopIfReady()
             }
         }
+        udpSender?.stop { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                self.waitingForUDPStop = false
+                switch result {
+                case .success(let statistics):
+                    self.pendingUDPStatistics = statistics
+                case .failure(let error):
+                    self.pendingStopError = error
+                }
+                self.finishStopIfReady()
+            }
+        }
 
         finishStopIfReady()
     }
@@ -142,7 +167,11 @@ final class SessionRecorder: ObservableObject {
         }
     }
 
-    private func prepareAndStart(phoneAssemblyID: String) throws {
+    private func prepareAndStart(
+        phoneAssemblyID: String,
+        udpConfiguration: UDPProbeConfiguration?
+    ) throws {
+        let validatedUDPConfiguration = try udpConfiguration?.validated()
         let documents = try FileManager.default.url(
             for: .documentDirectory,
             in: .userDomainMask,
@@ -173,6 +202,7 @@ final class SessionRecorder: ObservableObject {
         thermalAtStart = Self.thermalDescription(ProcessInfo.processInfo.thermalState)
         maximumThermalState = ProcessInfo.processInfo.thermalState
         self.phoneAssemblyID = phoneAssemblyID
+        self.udpConfiguration = validatedUDPConfiguration
         sessionID = identity
         sessionDirectory = directory
 
@@ -221,18 +251,44 @@ final class SessionRecorder: ObservableObject {
         )
         roomRecorder = room
         motionRecorder = motion
-
-        try motion.start()
-        do {
-            try room.start()
-        } catch {
-            motion.stop { _ in }
-            throw error
+        if let validatedUDPConfiguration {
+            udpSender = try UDPProbeSender(
+                configuration: validatedUDPConfiguration,
+                sessionID: identity,
+                logURL: directory.appendingPathComponent("udp_tx.csv"),
+                stateHandler: { [weak self] udpState in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        switch udpState {
+                        case .sending:
+                            self.appendEvent(
+                                type: "udp_probe_started",
+                                detail: "\(validatedUDPConfiguration.host):\(validatedUDPConfiguration.port)"
+                            )
+                        case .failed(let detail):
+                            guard self.state == .recording else { return }
+                            self.appendEvent(type: "udp_probe_failed", detail: detail)
+                            self.stop(reason: detail, status: "failed")
+                        default:
+                            break
+                        }
+                    }
+                }
+            )
         }
 
-        appendEvent(type: "session_started", detail: "phone_only_p1")
+        try motion.start()
+        try room.start()
+        try udpSender?.start()
+
+        let stage = validatedUDPConfiguration == nil
+            ? CaptureStage.phoneOnlyP1.rawValue
+            : CaptureStage.phoneUDPProbeP2.rawValue
+        appendEvent(type: "session_started", detail: stage)
         state = .recording
-        statusMessage = "正在同步采集后置视频、ARKit、IMU 与人脸锚点"
+        statusMessage = validatedUDPConfiguration == nil
+            ? "正在同步采集后置视频、ARKit、IMU 与人脸锚点"
+            : "正在同步采集视频、ARKit、IMU、人脸锚点与 UDP 上行"
         elapsedSeconds = 0
         UIApplication.shared.isIdleTimerDisabled = true
         startElapsedTimer()
@@ -240,7 +296,7 @@ final class SessionRecorder: ObservableObject {
 
     private func finishStopIfReady() {
         guard state == .stopping else { return }
-        guard !waitingForRoomStop, !waitingForMotionStop else { return }
+        guard !waitingForRoomStop, !waitingForMotionStop, !waitingForUDPStop else { return }
         guard let directory = sessionDirectory, let identity = sessionID else {
             completeWithFailure(SessionRecorderError.incompleteStop)
             return
@@ -257,7 +313,7 @@ final class SessionRecorder: ObservableObject {
             let endedMonotonic = ProcessInfo.processInfo.systemUptime
             elapsedSeconds = max(0, endedMonotonic - startedMonotonic)
 
-            let coreFileNames = [
+            var coreFileNames = [
                 "capabilities.json",
                 "assembly.json",
                 "rear_video.mov",
@@ -266,6 +322,9 @@ final class SessionRecorder: ObservableObject {
                 "imu.csv",
                 "events.csv"
             ]
+            if udpConfiguration != nil {
+                coreFileNames.append("udp_tx.csv")
+            }
             let descriptors = try coreFileNames.compactMap { name -> SessionMetadata.SessionFile? in
                 let url = directory.appendingPathComponent(name)
                 guard FileManager.default.fileExists(atPath: url.path) else { return nil }
@@ -308,7 +367,9 @@ final class SessionRecorder: ObservableObject {
             lastSessionURL = directory
             if finalStatus == "completed", report.passed, pendingStopError == nil {
                 state = .completed
-                statusMessage = "P1 session 完成，自动完整性检查通过"
+                statusMessage = udpConfiguration == nil
+                    ? "P1 session 完成，自动完整性检查通过"
+                    : "P2 手机端 session 完成，自动完整性检查通过"
             } else {
                 state = .failed
                 let detail = pendingStopError?.localizedDescription
@@ -322,6 +383,7 @@ final class SessionRecorder: ObservableObject {
 
         roomRecorder = nil
         motionRecorder = nil
+        udpSender = nil
     }
 
     private func writeProvisionalMetadata(directory: URL, status: String) throws {
@@ -344,10 +406,11 @@ final class SessionRecorder: ObservableObject {
         }
         let room = pendingRoomStatistics ?? RoomScanStatistics()
         let motion = pendingMotionStatistics ?? MotionStatistics()
+        let udp = pendingUDPStatistics ?? UDPProbeStatistics()
         let metadata = SessionMetadata(
             schemaVersion: SessionMetadata.schemaVersion,
             sessionID: identity,
-            captureStage: .phoneOnlyP1,
+            captureStage: udpConfiguration == nil ? .phoneOnlyP1 : .phoneUDPProbeP2,
             createdAt: ISO8601Timestamp.string(from: createdAt),
             completedAt: ISO8601Timestamp.string(from: Date()),
             status: status,
@@ -382,7 +445,19 @@ final class SessionRecorder: ObservableObject {
                 maximumThermalState: Self.thermalDescription(maximumThermalState),
                 thermalStateAtEnd: Self.thermalDescription(ProcessInfo.processInfo.thermalState),
                 availableCapacityBytesAtStart: availableCapacityAtStart,
-                availableCapacityBytesAtEnd: Self.availableCapacity(for: directory)
+                availableCapacityBytesAtEnd: Self.availableCapacity(for: directory),
+                udp: udpConfiguration.map {
+                    .init(
+                        targetHost: $0.host,
+                        targetPort: $0.port,
+                        configuredBitrateBitsPerSecond: $0.bitrateBitsPerSecond,
+                        datagramBytes: $0.datagramBytes,
+                        attemptedPacketCount: udp.attemptedPackets,
+                        successfulPacketCount: udp.successfulPackets,
+                        failedPacketCount: udp.failedPackets,
+                        achievedBitrateBitsPerSecond: udp.achievedBitrateBitsPerSecond
+                    )
+                }
             ),
             files: files
         )
@@ -439,8 +514,15 @@ final class SessionRecorder: ObservableObject {
         if let directory = sessionDirectory {
             lastSessionURL = directory
         }
+        let roomToStop = roomRecorder
         roomRecorder = nil
+        roomToStop?.stop { _ in }
+        let motionToStop = motionRecorder
         motionRecorder = nil
+        motionToStop?.stop { _ in }
+        let udpToStop = udpSender
+        udpSender = nil
+        udpToStop?.stop { _ in }
         try? eventWriter?.close()
         eventWriter = nil
     }
@@ -567,6 +649,7 @@ private extension SessionRecorder {
         case "face_anchors.csv": return "face_anchors"
         case "imu.csv": return "core_motion"
         case "events.csv": return "capture_events"
+        case "udp_tx.csv": return "udp_transmit_log"
         default: return "other"
         }
     }
@@ -609,4 +692,3 @@ private extension SessionRecorder {
         String(format: "%.9f", Double(value))
     }
 }
-

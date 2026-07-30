@@ -1,4 +1,4 @@
-# Session Format v1.1
+# Session Format v1.2
 
 本目录是 iOS、CSI Linux 和 WSL/WiTwin 三端共享的数据契约。任何不向后兼容的
 字段或二进制格式修改，都必须提升协议版本并先合入 `main`。
@@ -27,15 +27,19 @@ t_csi = clock_scale * t_phone + clock_offset_ns
 `capture_stage` 明确当前 session 已接入的数据源：
 
 - `phone_only_p1`：只要求手机、手机装配和手机单调时基；
+- `phone_udp_p2`：手机端已发送 WTWN UDP 并保存 `udp_tx.csv`，但尚未装配 CSI
+  接收数据，因此不伪造 CSI 设备和时基；
 - `phone_csi_p2`：额外要求 CSI 接收端、接收装配和 CSI 时基；
 - `unified_p4`：要求手机与 CSI 两端，并用于统一坐标后的联合数据。
 
-P1 数据不得为了通过 schema 而伪造 CSI 设备、装配或时基。Schema 1.1.0 通过
-条件约束仅在 P2/P4 阶段要求这些字段。
+P1 和手机侧 UDP 预验证数据不得为了通过 schema 而伪造 CSI 设备、装配或时基。
+Schema 1.2.0 对 `phone_udp_p2` 强制要求 `capture.udp` 摘要和
+`udp_transmit_log` 文件描述；仅对 `phone_csi_p2`/`unified_p4` 强制要求 CSI
+设备、装配和时基。
 
 ## 版本原则
 
-- `schema_version`：元数据结构版本，例如 `1.1.0`；
+- `schema_version`：元数据结构版本，例如 `1.2.0`；
 - UDP `protocol_version`：线格式整数版本；
 - 解析器遇到不支持的主版本必须显式失败；
 - 增加可选字段可以提升次版本；

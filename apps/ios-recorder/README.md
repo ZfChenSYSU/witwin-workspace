@@ -30,7 +30,7 @@ Xcode 状态。`DerivedData/` 和本地构建产物已被 Git 忽略。
 ## 当前实现
 
 已建立 `WiTwinRecorder.xcodeproj`、共享 Scheme 和对应的 `project.yml`。当前
-App 版本为 0.2.0。
+App 版本为 0.3.0。
 
 ### P0 能力探针
 
@@ -80,8 +80,36 @@ validation_report.json
 checksums.sha256
 ```
 
-公共 session schema 已升级到 1.1.0，并用 `capture_stage=phone_only_p1` 明确
+公共 session schema 已升级到 1.2.0，并用 `capture_stage=phone_only_p1` 明确
 P1 不需要伪造 CSI 设备、装配或时基。
+
+### P2 直连 IP UDP 上行
+
+App 已加入独立 UDP 测试和 Recorder 同进程集成：
+
+- 手机端可自由填写目标 IPv4/主机名和 UDP 端口；
+- 首轮默认目标为 `192.168.3.31:5201`；
+- 正式数据流前发送 WTWN HELLO，只有收到 Linux 接收器 ACK 才开始发包；
+- 独立测试默认以 2 Mbit/s、1200 字节数据报运行，时长从 ACK 后开始计算；
+- Recorder 可勾选“同时发送 P2 UDP 上行”，视频、ARKit、IMU、人脸锚点和
+  UDP 在同一 App 进程及同一 session 中记录；
+- `udp_tx.csv`、ARKit 回调、IMU 回调和人脸锚点回调均记录同源的手机单调
+  纳秒时钟；
+- P2 session 使用 `capture_stage=phone_udp_p2`，停止后同样生成完整性报告与
+  SHA-256。
+
+PicoScenes/Linux 端先启动 ACK 接收器：
+
+```bash
+/opt/witwin/venv/bin/python /opt/witwin/capture/csi-linux/udp_probe_receiver.py \
+  --bind 0.0.0.0 \
+  --port 5201 \
+  --output /opt/witwin/capture/csi-linux/raw/udp_probe.csv
+```
+
+看到 `WTWN UDP receiver listening` 后，再在手机点击“开始发包”。iPerf3 TCP
+5201 可以与 WTWN UDP 5201 并存；iPerf3 UDP 与 WTWN UDP 不能同时绑定 UDP
+5201。
 
 ## 打开与构建
 
@@ -119,7 +147,7 @@ xcodegen generate
 
 生成后应重新执行构建和测试，避免只验证 YAML 或只验证已生成工程。
 
-## 当前验证状态（2026-07-29）
+## 当前验证状态（2026-07-30）
 
 - iOS Simulator 26.5 SDK、arm64、Debug App 构建通过；
 - `WiTwinRecorderTests` 测试 Target 的 `build-for-testing` 通过；
@@ -133,7 +161,8 @@ xcodegen generate
 - 真机证据保存在本地忽略目录
   `datasets/iphone11pro-p0-20260728/capabilities.json`；
 - 开发证书已恢复系统默认信任，个人证书私钥授权可正常用于自动签名；
-- `WiTwinRecorderTests` 已在同一台 iPhone 11 Pro 上执行，5 项测试全部通过；
+- `WiTwinRecorderTests` 已在同一台 iPhone 11 Pro 上执行：7 项常规测试通过，
+  2 项实时网络用例默认由安全开关跳过；
 - 5 秒真机端到端采集冒烟测试通过；
 - 1 分钟真机 P1 测试通过：60.18 秒、3583 个 ARFrame、3583 个视频帧、
   0 丢帧、42050 条 IMU 样本；
@@ -142,6 +171,13 @@ xcodegen generate
 - 测试期间最高热状态为 `nominal`，自动报告无错误、无警告；
 - 完整 1 分钟证据保存在本地忽略目录
   `datasets/iphone11pro-p1-20260729/session_20260729_105114/`。
+- 2026-07-30 直连 `192.168.3.31:5201` 的 10 秒独立 UDP 真机测试通过：
+  2083 包全部本地发送成功、0 失败、约 1.999 Mbit/s；
+- 5 秒 `phone_udp_p2` 联合真机测试通过：260 个 AR/视频帧、0 视频丢帧、
+  3506 条 IMU、1035 个 UDP 本地成功包、1 个停止阶段取消包、序号缺口 0；
+- P2 手机端证据保存在
+  `datasets/iphone11pro-p2-udp-20260730/` 和
+  `datasets/iphone11pro-p2-integrated-20260730/`。
 
 ## 离线完整性复核
 
@@ -160,5 +196,7 @@ apps/ios-recorder/scripts/check_p1_session.sh \
 `capabilities.json` 前，只能认为工程“编译通过”，不能认为设备能力或并发跟踪
 已经通过。
 
-P1 最小里程碑已经通过；进入 P2 前仍需在正式移动扫描路径上完成 10 分钟稳定性
-测试。
+P1 最小里程碑与 1 分钟真机功能测试已经通过；当前不把 10 分钟测试作为进入 P2
+的前置条件。P2 的直连 IP、HELLO/ACK、独立 UDP 和 Recorder 同进程联合采集均已
+通过真机测试。下一步是保存并对照 Linux 接收日志与手机日志，再在 PicoScenes
+结果中筛选上行帧并建立手机时钟到 CSI 时钟的偏移/漂移模型。

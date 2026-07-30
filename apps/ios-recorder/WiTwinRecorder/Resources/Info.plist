@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>采集后置 RGB、ARKit 位姿和前置人脸锚点，用于 WiTwin 科研实验。</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>向实验局域网中的 WiTwin CSI 主机发送带序号和时间戳的 UDP 上行探测包。</string>
 	<key>NSMotionUsageDescription</key>
 	<string>采集加速度计、陀螺仪和设备运动数据，用于视觉惯性轨迹分析。</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

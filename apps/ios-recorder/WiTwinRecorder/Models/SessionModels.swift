@@ -2,6 +2,7 @@ import Foundation
 
 enum CaptureStage: String, Codable {
     case phoneOnlyP1 = "phone_only_p1"
+    case phoneUDPProbeP2 = "phone_udp_p2"
 }
 
 enum RecordingState: String, Codable {
@@ -14,7 +15,7 @@ enum RecordingState: String, Codable {
 }
 
 struct SessionMetadata: Codable, Equatable {
-    static let schemaVersion = "1.1.0"
+    static let schemaVersion = "1.2.0"
 
     let schemaVersion: String
     let sessionID: String
@@ -68,6 +69,18 @@ struct SessionMetadata: Codable, Equatable {
         let thermalStateAtEnd: String
         let availableCapacityBytesAtStart: Int64?
         let availableCapacityBytesAtEnd: Int64?
+        let udp: UDPSummary?
+    }
+
+    struct UDPSummary: Codable, Equatable {
+        let targetHost: String
+        let targetPort: Int
+        let configuredBitrateBitsPerSecond: Int
+        let datagramBytes: Int
+        let attemptedPacketCount: Int
+        let successfulPacketCount: Int
+        let failedPacketCount: Int
+        let achievedBitrateBitsPerSecond: Double
     }
 
     struct SessionFile: Codable, Equatable {
@@ -126,6 +139,11 @@ struct SessionValidationReport: Codable, Equatable {
         let faceTrackedSampleCount: Int
         let faceTrackedRatio: Double
         let eventCount: Int
+        let udpPacketCount: Int
+        let udpSuccessfulPacketCount: Int
+        let udpFailedPacketCount: Int
+        let udpSequenceGapCount: Int
+        let udpAchievedBitrateBitsPerSecond: Double
     }
 }
 
@@ -141,4 +159,3 @@ enum SessionJSON {
         try encode(value).write(to: url, options: .atomic)
     }
 }
-
