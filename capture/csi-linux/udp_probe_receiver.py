@@ -19,12 +19,29 @@ from pathlib import Path
 
 
 HEADER = struct.Struct("!4sBBHQQQ")
+NATIVE_TIMESPEC = struct.Struct("@ll")
 MAGIC = b"WTWN"
 PROTOCOL_VERSION = 1
 HEADER_LENGTH = 32
 FLAG_DATA = 0
 FLAG_HELLO = 1
 FLAG_ACKNOWLEDGEMENT = 2
+SO_TIMESTAMPNS = getattr(socket, "SO_TIMESTAMPNS", 35)
+REQUESTED_RECEIVE_BUFFER_BYTES = 8 * 1024 * 1024
+
+
+def extract_kernel_realtime_ns(
+    ancillary: list[tuple[int, int, bytes]],
+) -> int | None:
+    for level, message_type, data in ancillary:
+        if (
+            level == socket.SOL_SOCKET
+            and message_type == SO_TIMESTAMPNS
+            and len(data) >= NATIVE_TIMESPEC.size
+        ):
+            seconds, nanoseconds = NATIVE_TIMESPEC.unpack_from(data)
+            return seconds * 1_000_000_000 + nanoseconds
+    return None
 
 
 @dataclass
@@ -103,6 +120,24 @@ def main() -> int:
     started_realtime_ns = time.time_ns()
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
+        udp_socket.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_RCVBUF,
+            REQUESTED_RECEIVE_BUFFER_BYTES,
+        )
+        receive_buffer_bytes = udp_socket.getsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_RCVBUF,
+        )
+        kernel_timestamping = True
+        try:
+            udp_socket.setsockopt(
+                socket.SOL_SOCKET,
+                SO_TIMESTAMPNS,
+                1,
+            )
+        except OSError:
+            kernel_timestamping = False
         udp_socket.bind((args.bind, args.port))
         udp_socket.settimeout(0.5)
 
@@ -112,6 +147,7 @@ def main() -> int:
                 [
                     "receiver_monotonic_ns",
                     "receiver_realtime_ns",
+                    "receiver_kernel_realtime_ns",
                     "source_ip",
                     "source_port",
                     "datagram_bytes",
@@ -128,18 +164,27 @@ def main() -> int:
             output_file.flush()
             print(
                 f"WTWN UDP receiver listening on {args.bind}:{args.port}; "
-                f"output={args.output}",
+                f"output={args.output}; kernel_timestamping={kernel_timestamping}; "
+                f"receive_buffer_bytes={receive_buffer_bytes}",
                 flush=True,
             )
 
             while not stopping:
                 try:
-                    datagram, source = udp_socket.recvfrom(65_535)
+                    datagram, ancillary, _message_flags, source = (
+                        udp_socket.recvmsg(
+                            65_535,
+                            socket.CMSG_SPACE(NATIVE_TIMESPEC.size),
+                        )
+                    )
                 except socket.timeout:
                     continue
 
                 receiver_monotonic_ns = time.monotonic_ns()
                 receiver_realtime_ns = time.time_ns()
+                receiver_kernel_realtime_ns = (
+                    extract_kernel_realtime_ns(ancillary) or 0
+                )
                 total_packets += 1
                 magic = b""
                 version = 0
@@ -198,6 +243,7 @@ def main() -> int:
                     [
                         receiver_monotonic_ns,
                         receiver_realtime_ns,
+                        receiver_kernel_realtime_ns,
                         source[0],
                         source[1],
                         len(datagram),
@@ -226,6 +272,8 @@ def main() -> int:
         "schema_version": "1.0.0",
         "bind": args.bind,
         "port": args.port,
+        "kernel_timestamping": kernel_timestamping,
+        "receive_buffer_bytes": receive_buffer_bytes,
         "started_realtime_ns": started_realtime_ns,
         "finished_realtime_ns": finished_realtime_ns,
         "total_packets": total_packets,
@@ -236,6 +284,7 @@ def main() -> int:
         },
         "notes": [
             "receiver_monotonic_ns and receiver_realtime_ns are Linux host clocks",
+            "receiver_kernel_realtime_ns is the preferred Linux packet-arrival timestamp when nonzero",
             "these fields do not replace PicoScenes CSI timestamps",
         ],
     }
