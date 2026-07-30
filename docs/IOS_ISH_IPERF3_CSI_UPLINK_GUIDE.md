@@ -1,323 +1,232 @@
-# iPhone/Bonjour 可复现 iPerf3 上行流量配置
+# iPhone/iSH 可复现 iPerf3 上行流量配置
 
-## 1. 方案结论
+## 1. 目的与适用范围
 
-本方案用于让 iPhone 11 Pro 在主机 DHCP 地址变化后，仍能以固定名称产生可复现的上行 UDP 流量，配合 PicoScenes CSI 采集。
+本文用于让 iPhone 11 Pro 通过可复现的命令持续产生上行 UDP 流量，配合 Linux 主机上的 iPerf3 服务和 PicoScenes CSI 采集。推荐使用免费的 iSH Shell，在手机端通过脚本固定服务端、端口、带宽、报文长度和并发数，避免图形客户端误设为 TCP、多流或反向传输。
 
-主方案不再使用 iSH 直接连接 IP，而是采用：
+实验数据方向为：
 
 ```text
-iPhone 原生 iPerf3 客户端
-        │
-        │  连接 witwin-csi.local:5201
-        │  UDP 上行
+iPhone 11 Pro（iPerf3 客户端）
+        │  Wi-Fi 上行 UDP
         ▼
 无线接入点
         │
-        ├── Linux 有线接口 enp1s0
-        │       └── iPerf3 服务端
-        │
-        └── AX200/PicoScenes
-                └── 监听同一无线信道并采集 CSI
+        ├── Linux 主机（iPerf3 服务端）
+        └── AX200/PicoScenes（监听并采集 CSI）
 ```
 
-底层网络仍然使用 IP，但 Bonjour/mDNS 会把固定名称 `witwin-csi.local` 动态解析为主机有线接口的当前地址。手机端不再保存或手工更新 `192.168.3.x` 地址。
+AX200 是监听和采集设备，不需要充当接入点。手机应连接实验使用的 Wi-Fi，Linux 主机可以通过网线接入同一局域网。
 
-## 2. 当前主机状态与问题
+## 2. 主机端基准配置
 
-制定本方案时，主机状态为：
+此前配置的主机端参数为：
 
-- 有线接口：`enp1s0`，当前地址 `192.168.3.31/24`；
-- 无线接口：`wlp2s0`，当前地址 `192.168.3.38/24`；
-- 两个接口都由 DHCP 自动分配，租期为 7200 秒；
-- 两个接口位于同一 `192.168.3.0/24` 子网，共用网关 `192.168.3.100`；
-- Avahi 已安装、启用并运行；
-- 当前 `zyh-SER.local` 解析到无线地址 `192.168.3.38`；
-- `picoscenes-iperf3.service` 硬绑定 `192.168.3.31:5201`。
+- iPerf3 服务地址：`192.168.3.31`
+- iPerf3 服务端口：`5201`
+- systemd 服务：`picoscenes-iperf3.service`
 
-现有配置有两个故障点：
-
-1. 有线 DHCP 地址变化后，iPerf3 仍绑定旧地址，服务可能启动失败或无法连接；
-2. 默认 mDNS 可能公布无线接口，手机可能连接到 `wlp2s0`，不符合“手机 Wi-Fi 上行、主机有线接收、AX200 采集”的实验路径。
-
-## 3. 目标配置
-
-目标行为如下：
-
-- 手机始终使用 `witwin-csi.local`；
-- Avahi 只在 `enp1s0` 上公布该名称；
-- 只公布 IPv4，减少双栈选择带来的实验路径差异；
-- iPerf3 监听通配地址，不硬编码 DHCP 地址；
-- 无线接口 `wlp2s0` 可以脱离普通 Wi-Fi 连接并交给 PicoScenes；
-- 端口固定为 `5201`；
-- iPhone 使用固定的私有 Wi-Fi MAC，便于 CSI 帧过滤。
-
-## 4. 主机端配置
-
-### 4.1 配置 Avahi 固定名称和接口
-
-编辑 `/etc/avahi/avahi-daemon.conf` 的 `[server]` 段，设置：
-
-```ini
-[server]
-host-name=witwin-csi
-domain-name=local
-use-ipv4=yes
-use-ipv6=no
-allow-interfaces=enp1s0
-```
-
-文件中的其他段和现有安全设置应保留，不要用上述片段替换整个配置文件。
-
-配置含义：
-
-- `host-name=witwin-csi`：固定名称为 `witwin-csi.local`；
-- `allow-interfaces=enp1s0`：只公布有线接口地址；
-- `use-ipv6=no`：本实验固定使用 IPv4，避免 IPv6 隐私地址轮换和路径选择差异。
-
-重新启动并检查：
+每次实验前都应重新确认网卡地址，避免 DHCP 变化：
 
 ```bash
-systemctl restart avahi-daemon
-systemctl is-active avahi-daemon
-avahi-resolve-host-name -4 witwin-csi.local
+ip -4 -brief address show enp1s0
 ```
 
-最后一条命令应返回 `enp1s0` 当前地址，不应返回 `wlp2s0` 地址。
-
-### 4.2 取消 iPerf3 的固定 IP 绑定
-
-将 `/etc/systemd/system/picoscenes-iperf3.service` 中的：
-
-```ini
-ExecStart=/usr/bin/iperf3 --server --bind 192.168.3.31 --port 5201
-```
-
-改为：
-
-```ini
-ExecStart=/usr/bin/iperf3 --server --port 5201
-```
-
-然后执行：
+确认 iPerf3 服务正在运行：
 
 ```bash
-systemctl daemon-reload
-systemctl restart picoscenes-iperf3.service
 systemctl is-active picoscenes-iperf3.service
-ss -lntup 'sport = :5201'
+systemctl status --no-pager picoscenes-iperf3.service
 ```
 
-监听结果应为通配地址的 `5201` 端口，而不是某个具体的 `192.168.3.x:5201`。
+若主机地址不再是 `192.168.3.31`，应把手机端脚本中的服务地址改为上述命令显示的新地址。
 
-虽然 iPerf3 会监听所有本机地址，但手机通过 `witwin-csi.local` 只会获得 Avahi 在 `enp1s0` 上公布的地址，因此实验流量仍走有线接收路径。
+无线接入点的信道和带宽也可能自动变化。开始采集前必须重新检查实际信道，不能长期硬编码此前使用的信道值。
 
-### 4.3 主机端快速验证
+## 3. iPhone 一次性系统配置
 
-在另一台支持 Bonjour 的设备上测试：
+### 3.1 固定实验网络的私有 Wi-Fi 地址
 
-```bash
-iperf3 \
-  -c witwin-csi.local \
-  -p 5201 \
+打开：
+
+```text
+设置 → Wi-Fi → 当前实验网络右侧的“信息”按钮 → 私有 Wi-Fi 地址
+```
+
+在支持该选项的 iOS 版本中选择“固定”，然后记录此页面显示的 Wi-Fi 地址。这个地址是实验中需要使用的 iPhone 发送端 MAC，不能继续沿用之前 Android 手机的 MAC。  iOS 不允许普通应用通过脚本关闭或修改这个系统隐私设置，因此这一步需要在系统设置中完成一次。更换 SSID、重置网络设置或改变私有地址模式后，应重新核对 MAC。
+
+### 3.2 允许 iSH 访问局域网
+
+打开：
+
+```text
+设置 → 隐私与安全性 → 本地网络 → iSH
+```
+
+确保 iSH 的开关已打开。若尚未出现该项目，先在 iSH 中运行一次连接命令，待系统弹出权限请求时选择“允许”。
+
+### 3.3 避免后台挂起
+
+实验期间建议：
+
+- 保持 iSH 位于前台；
+- 临时把自动锁定设为“永不”；
+- 关闭低电量模式；
+- 手机保持固定位置和朝向；
+- 避免实验过程中切换 Wi-Fi、蜂窝网络或应用。
+
+## 4. 安装 iSH 和 iPerf3
+
+iSH 中国大陆 App Store 页面：
+
+[https://apps.apple.com/cn/app/ish-shell/id1436902243](https://apps.apple.com/cn/app/ish-shell/id1436902243)
+
+安装并打开 iSH 后，在其终端执行：
+
+```sh
+apk update
+apk add iperf3
+iperf3 --version
+```
+
+`apk update` 或软件下载较慢时，可以先换到速度较好的网络完成安装；正式实验时再连接实验 Wi-Fi。安装成功后无需每次重新下载。
+
+## 5. 创建可复现的上行流量脚本
+
+在 iSH 中完整执行以下命令：
+
+```sh
+cat > ~/csi-uplink.sh <<'EOF'
+#!/bin/sh
+set -eu
+
+SERVER="${IPERF_SERVER:-192.168.3.31}"
+PORT="${IPERF_PORT:-5201}"
+BANDWIDTH="${IPERF_BANDWIDTH:-2M}"
+PAYLOAD="${IPERF_PAYLOAD:-1200}"
+DURATION="${1:-120}"
+
+exec iperf3 \
+  -c "$SERVER" \
+  -p "$PORT" \
   -u \
-  -b 2M \
-  -l 1200 \
-  -t 10 \
+  -b "$BANDWIDTH" \
+  -l "$PAYLOAD" \
+  -t "$DURATION" \
   -P 1
+EOF
+
+chmod +x ~/csi-uplink.sh
 ```
 
-应能正常连接并显示 UDP `sender`/`receiver` 统计。
+默认运行 120 秒：
 
-## 5. iPhone 客户端
-
-### 5.1 推荐应用
-
-推荐使用原生应用“iPerf3 客户端与服务器”：
-
-<https://apps.apple.com/cn/app/iperf3-%E5%AE%A2%E6%88%B7%E7%AB%AF%E4%B8%8E%E6%9C%8D%E5%8A%A1%E5%99%A8/id6755545337>
-
-该应用支持：
-
-- 主机名和 IP；
-- TCP、UDP、上传、下载和双向测试；
-- 持续时间、并行流、带宽和报文长度等高级参数；
-- Apple 快捷指令；
-- `x-callback-url` 自动化；
-- 测试历史及 CSV/JSON 导出。
-
-这是一次性付费应用。若不采用付费客户端，应使用第 9 节的后备方案。
-
-### 5.2 一次性系统设置
-
-在 iPhone 上：
-
-1. 连接实验 SSID；
-2. 打开“设置 → Wi-Fi → 当前网络 → 私有 Wi-Fi 地址”；
-3. 选择“固定”，并记录当前显示的 Wi-Fi MAC；
-4. 打开“设置 → 隐私与安全性 → 本地网络”；
-5. 允许 iPerf3 客户端访问本地网络；
-6. 实验期间关闭低电量模式并保持应用位于前台；
-7. 临时关闭自动锁定，保持手机位置和朝向不变。
-
-iOS 不允许普通应用通过脚本修改私有 Wi-Fi 地址或本地网络权限，因此这些系统设置需要手动完成一次。
-
-### 5.3 保存实验配置
-
-在客户端的高级模式中建立并保存配置：
-
-- Server：`witwin-csi.local`
-- Port：`5201`
-- Protocol：UDP
-- Direction：Upload
-- Bandwidth：`2 Mbit/s`
-- Packet size：`1200 bytes`
-- Duration：`120 s`
-- Streams：`1`
-- Reverse：关闭
-- Bidirectional：关闭
-
-配置目标是单个、受控、持续的 iPhone 上行 UDP 流，不能使用多流 TCP 或反向下载。
-
-### 5.4 Apple 快捷指令和 URL 自动化
-
-应用公开的自动化 URL 为：
-
-```text
-iperf3cs://x-callback-url/run-test?server=witwin-csi.local&protocol=udp&direction=upload&durationSec=120&streams=1
+```sh
+~/csi-uplink.sh
 ```
 
-可以在 Safari 中打开该 URL，也可以在 Apple“快捷指令”中使用“打开 URL”动作。
+运行 180 秒：
 
-公开 URL API 当前包含服务器、协议、方向、持续时间和流数量；带宽与报文长度应先在应用高级模式中配置并保存。正式实验前必须核对仍为 `2 Mbit/s` 和 `1200 bytes`。
-
-推荐快捷指令流程：
-
-```text
-打开 iPerf3 测试 URL
-        ↓
-保持应用前台运行 120 秒
-        ↓
-获取最近一次结果
-        ↓
-保存或导出结果
+```sh
+~/csi-uplink.sh 180
 ```
+
+如果主机 IP 发生变化，可以在不修改脚本的情况下临时覆盖：
+
+```sh
+IPERF_SERVER=192.168.3.32 ~/csi-uplink.sh 120
+```
+
+也可以按实验需求临时覆盖带宽、端口或 UDP 负载长度：
+
+```sh
+IPERF_BANDWIDTH=4M IPERF_PAYLOAD=1200 ~/csi-uplink.sh 120
+```
+
+脚本的关键约束是：
+
+- `-u`：使用 UDP；
+- 不使用 `-R`：流量方向是 iPhone 到主机；
+- `-P 1`：只建立一个流；
+- `-b 2M`：默认目标速率为 2 Mbit/s；
+- `-l 1200`：使用 1200 字节 UDP 负载，减少 IP 分片风险。
 
 ## 6. 推荐联调顺序
 
-1. 主机确认有线连接、Avahi 和 iPerf3 服务正常；
-2. 确认 `witwin-csi.local` 解析为 `enp1s0` 当前地址；
-3. iPhone 连接实验 SSID，并核对固定私有 Wi-Fi MAC；
-4. 检查接入点当前实际频段、信道和带宽；
-5. 将 AX200 切换到 PicoScenes 所需模式和信道；
-6. 先启动 CSI 采集，等待程序明确报告启动成功；
-7. 再由 iPhone 快捷指令启动 120 秒 UDP 上行；
-8. 采集结束后保存 CSI、客户端结果和实验元数据。
+1. 在 Linux 主机上确认有线网卡 IP 和 `picoscenes-iperf3.service` 状态。
+2. 确认 iPhone 已连接实验 SSID，并记录当前固定私有 Wi-Fi 地址。
+3. 检查接入点的实际信道和带宽，使 AX200/PicoScenes 监听参数与之匹配。
+4. 先启动 PicoScenes CSI 采集，并等待采集程序确认已成功启动。
+5. 再在 iSH 中运行 `~/csi-uplink.sh 120`。
+6. 采集结束后保存 iPerf3 输出、CSI 文件和本次实验元数据。
 
-每次正式实验前，建议先运行 10～30 秒短测试。
+iPerf3 正常运行时，输出中应出现服务端连接信息、周期性传输统计，以及最终的 `sender`/`receiver` UDP 统计。若输出显示多个并发连接、TCP 或反向流量，则参数不符合本方案。
 
 ## 7. CSI 过滤条件
 
-上行数据帧建议按以下条件识别：
+上行数据帧的建议识别条件为：
 
 ```text
-Addr2  == 本次记录的 iPhone Wi-Fi MAC
-ToDS   == 1
+Addr2 == 本次记录的 iPhone Wi-Fi MAC
+ToDS  == 1
 FromDS == 0
 ```
 
-不要继续使用此前 Android 手机的 MAC，也不要使用 iPhone 的蜂窝、蓝牙或其他接口地址。
+其中 `Addr2` 应使用 iPhone 当前实验 SSID 对应的私有 Wi-Fi 地址。不要使用蜂窝网络地址、蓝牙地址、旧 Android 手机地址或 iPhone 的其他接口地址。
 
-## 8. 故障排查
+建议在正式采集前先做一个较短的 20～30 秒测试，确认能够观察到该 MAC 的上行帧，再开始长时间实验。
 
-### `witwin-csi.local` 无法解析
+## 8. 常见问题
 
-检查：
+### iPerf3 显示无法连接
 
-```bash
-systemctl status --no-pager avahi-daemon
-avahi-resolve-host-name -4 witwin-csi.local
-tcpdump -ni enp1s0 udp port 5353
-```
+依次检查：
 
-同时确认：
+1. iSH 是否获得“本地网络”权限；
+2. iPhone 和 Linux 主机是否位于同一局域网；
+3. 主机 IP 是否仍与脚本中的 `SERVER` 一致；
+4. `picoscenes-iperf3.service` 是否处于 `active` 状态；
+5. 是否有防火墙阻断 UDP/TCP 5201 端口。
 
-- iPhone 与 `enp1s0` 位于同一局域网广播域；
-- 接入点未启用客户端隔离、访客网络隔离或 mDNS 过滤；
-- iOS 客户端已获得本地网络权限；
-- Avahi 的 `allow-interfaces` 确实为 `enp1s0`。
+### iPerf3 正常，但没有目标 CSI
 
-### 名称解析成功但 iPerf3 无法连接
+依次检查：
 
-检查：
+1. iPhone 的私有 Wi-Fi 地址是否发生变化；
+2. PicoScenes 是否监听了接入点当前实际信道和带宽；
+3. 是否在 CSI 采集程序成功启动后才开始发送流量；
+4. 过滤条件是否使用 `Addr2`、`ToDS=1`、`FromDS=0`；
+5. 手机是否确实仍连接 Wi-Fi，而不是切换到了蜂窝网络。
 
-```bash
-systemctl status --no-pager picoscenes-iperf3.service
-ss -lntup 'sport = :5201'
-journalctl -u picoscenes-iperf3.service -n 50 --no-pager
-```
+### 流量运行一段时间后停止
 
-确认服务不再硬绑定旧 DHCP 地址，并检查防火墙是否阻断 TCP/UDP 5201。iPerf3 的 UDP 测试仍需要 TCP 控制连接。
+保持 iSH 在前台，临时关闭自动锁定和低电量模式。iOS 会限制后台应用持续执行，普通第三方应用无法通过脚本永久绕过这一系统策略。
 
-### iPerf3 正常但没有目标 CSI
+### `apk update` 或安装速度很慢
 
-检查：
+iSH 使用 Alpine Linux 软件仓库，网络跨境路径、DNS 或当前网络质量都可能影响速度。可以先在其他稳定网络中完成一次性安装，实验阶段只运行已经安装好的 `iperf3`。
 
-1. AX200 是否监听接入点当前实际信道和带宽；
-2. iPhone 私有 Wi-Fi MAC 是否发生变化；
-3. CSI 采集是否先于手机流量启动；
-4. 过滤条件是否为 `Addr2`、`ToDS=1`、`FromDS=0`；
-5. iPhone 是否仍使用 Wi-Fi，而不是蜂窝网络或 VPN。
+## 9. 每次实验应保存的元数据
 
-### 地址变化后短时间无法连接
-
-mDNS 客户端可能暂存旧记录。先等待数秒并重试；必要时切换一次 iPhone Wi-Fi，促使系统重新发现。不要把新 IP 写回快捷指令。
-
-## 9. 保留 iSH 时的后备方案
-
-iSH 当前不能可靠解析 `.local` 地址，原因包括 musl/mDNS 支持和 iOS 多播权限限制。因此，主方案不能在 iSH 中直接执行：
-
-```sh
-iperf3 -c witwin-csi.local
-```
-
-如果必须保留 iSH，应在路由器中为有线接口 MAC `70:70:FC:04:ED:54` 配置 DHCP 地址保留，再在 iSH `/etc/hosts` 中设置本地别名，例如：
-
-```text
-192.168.3.31 witwin-csi
-```
-
-iSH 脚本随后可以使用：
-
-```sh
-iperf3 -c witwin-csi -p 5201 -u -b 2M -l 1200 -t 120 -P 1
-```
-
-该方式只是把固定 IP 隐藏在 `/etc/hosts` 中，仍依赖路由器地址保留，不具备 Bonjour 的自动发现能力。
-
-## 10. 实验元数据
-
-每次实验至少保存：
+至少记录：
 
 - iPhone 型号和 iOS 版本；
-- 客户端应用及版本；
-- 实验 SSID 和固定私有 Wi-Fi MAC；
-- 服务名称 `witwin-csi.local`；
-- 名称实际解析到的有线 IPv4；
-- iPerf3 端口和版本；
-- UDP 带宽、报文长度、持续时间和流数量；
-- 接入点频段、信道和带宽；
+- 实验 SSID；
+- 当前固定私有 Wi-Fi 地址；
+- Linux 主机 IP 和 iPerf3 端口；
+- iPerf3 版本；
+- 实际执行命令和环境变量；
+- UDP 带宽、负载长度、持续时间和并发数；
+- 接入点实际信道、带宽和频段；
 - PicoScenes 启停时间与输出文件名；
-- 手机位置、朝向和移动情况；
-- iPerf3 最终发送端与接收端统计。
+- 手机位置、朝向和是否移动；
+- iPerf3 最终发送端/接收端统计。
 
-这些信息应与 CSI 原始文件放在同一实验会话目录或其元数据文件中。
+这些信息应与 CSI 原始文件放在同一实验会话目录或其元数据文件中，便于复现和排查。
 
-## 11. 参考资料
+## 10. 参考资料
 
-- Apple Bonjour 和 `.local` 名称：<https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/NetServices/Articles/about.html>
-- Apple 本地网络权限：<https://support.apple.com/en-gb/102229>
-- Apple 私有 Wi-Fi 地址：<https://support.apple.com/en-mide/102509>
-- iSH `.local` 解析限制：<https://github.com/ish-app/ish/issues/2748>
-- iPerf3 iOS 客户端：<https://apps.apple.com/cn/app/iperf3-%E5%AE%A2%E6%88%B7%E7%AB%AF%E4%B8%8E%E6%9C%8D%E5%8A%A1%E5%99%A8/id6755545337>
-- iPerf3 客户端自动化接口：<https://iperf3app.com/ios/shortcuts/>
+- iSH Shell（中国大陆 App Store）：[https://apps.apple.com/cn/app/ish-shell/id1436902243](https://apps.apple.com/cn/app/ish-shell/id1436902243)
+- Alpine Linux `iperf3` 软件包：[https://pkgs.alpinelinux.org/package/v3.21/main/x86_64/iperf3](https://pkgs.alpinelinux.org/package/v3.21/main/x86_64/iperf3)
+- Apple：控制 App 对本地网络的访问：[https://support.apple.com/en-gb/102229](https://support.apple.com/en-gb/102229)
+- Apple：私有 Wi-Fi 地址：[https://support.apple.com/en-mide/102509](https://support.apple.com/en-mide/102509)
