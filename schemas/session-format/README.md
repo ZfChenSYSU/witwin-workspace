@@ -3,6 +3,8 @@
 本目录是 iOS、CSI Linux 和 WSL/WiTwin 三端共享的数据契约。任何不向后兼容的
 字段或二进制格式修改，都必须提升协议版本并先合入 `main`。
 
+跨分支集成状态统一记录在 [`docs/current/branches/main.md`](../../docs/current/branches/main.md)。本 README 只描述当前 schema 的技术语义。
+
 ## 文件
 
 - `session.schema.json`：session 元数据 JSON Schema；

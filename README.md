@@ -14,8 +14,8 @@ pipelines/witwin/               WiTwin 仿真、实验和可复现产物
 schemas/session-format/         三端共享的数据、时间、坐标和 UDP 协议
 datasets/                       本地原始/处理中数据，默认不进入 Git
 src/                            固定版本的 WiTwin Core/Channel 子模块
-workspace/project-docs/         科研计划和论证文档
-docs/                           环境、交接和工程说明
+docs/                           全部当前文档、历史报告和参考资料
+workspace/host_snapshot/        2026-07-15 原始 Windows 快照（只读边界）
 validate_witwin.py              当前固定 WiTwin 环境的完整验证入口
 ```
 
@@ -31,7 +31,18 @@ editable Python 安装、历史验证命令和 Windows 快照边界。
 | `work/csi-linux` | Linux 网卡、PicoScenes、CSI/UDP、数据整理 |
 | `work/ios-recorder` | Mac/Xcode、iPhone、ARKit/CoreMotion |
 
-具体同步流程见 [`docs/BRANCH_WORKFLOW.md`](docs/BRANCH_WORKFLOW.md)。
+具体同步流程见 [`docs/reference/BRANCH_WORKFLOW.md`](docs/reference/BRANCH_WORKFLOW.md)。
+
+## 文档
+
+[`docs/`](docs/README.md) 是唯一权威文档入口：
+
+- [`docs/current/`](docs/current/README.md)：主计划、总体进度和各分支最新状态；
+- [`docs/history/`](docs/history/README.md)：旧计划、阶段报告、实验报告和环境交接；
+- [`docs/reference/`](docs/reference/README.md)：Git、分支、WiTwin、网络配置和技术调研。
+
+`pipelines/` 中只保留实验脚本、机器结果、图像及指向文档中心的简短 README。
+`workspace/project-docs/` 是兼容旧路径的提示入口，不再维护科研文档副本。
 
 ## WiTwin 验证
 

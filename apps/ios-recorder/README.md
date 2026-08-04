@@ -3,6 +3,8 @@
 此目录用于 Mac/Xcode 上开发 iPhone 11 Pro 多模态采集应用，对应工作分支
 `work/ios-recorder`。
 
+当前完成情况、缺口和下一步统一记录在 [`docs/current/branches/work-ios-recorder.md`](../../docs/current/branches/work-ios-recorder.md)。本 README 只说明应用职责和使用方式。
+
 ## 职责
 
 - ARKit 后置世界跟踪、RGB 帧、相机内参和六自由度位姿；
@@ -192,7 +194,7 @@ apps/ios-recorder/scripts/check_p1_session.sh \
 ## 真机验证
 
 真机接入步骤和 P0 通过条件见
-[`TRUE_DEVICE_CHECKLIST.md`](TRUE_DEVICE_CHECKLIST.md)。在生成并导出真实
+[`iPhone 11 Pro P0 真机检查`](../../docs/reference/ios/TRUE_DEVICE_CHECKLIST.md)。在生成并导出真实
 `capabilities.json` 前，只能认为工程“编译通过”，不能认为设备能力或并发跟踪
 已经通过。
 

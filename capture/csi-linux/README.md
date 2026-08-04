@@ -2,6 +2,8 @@
 
 此目录用于 CSI 采集 Linux 主机，对应工作分支 `work/csi-linux`。
 
+当前完成情况、缺口和下一步统一记录在 [`docs/current/branches/work-csi-linux.md`](../../docs/current/branches/work-csi-linux.md)。本 README 只说明采集端职责和使用方式。
+
 ## 职责
 
 - 固定并记录 CSI 网卡、天线、线缆、支架、驱动和 PicoScenes 版本；

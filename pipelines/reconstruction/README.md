@@ -3,6 +3,8 @@
 此目录用于 WSL/GPU 端的后置视频重建流水线，对应工作分支
 `work/wsl-witwin`。
 
+当前进度和下一步见 [`docs/current/branches/work-wsl-witwin.md`](../../docs/current/branches/work-wsl-witwin.md)，算法调研见 [`docs/reference/research/IPHONE_SLAM_SPATIAL_MODELING_RESEARCH_2026-07-29.md`](../../docs/reference/research/IPHONE_SLAM_SPATIAL_MODELING_RESEARCH_2026-07-29.md)。本目录只维护代码入口，不再存放独立进度报告。
+
 ## 输入
 
 - iOS 端后置视频或逐帧图像；
