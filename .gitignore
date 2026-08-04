@@ -19,6 +19,7 @@ datasets/**
 
 # Platform-specific build products and raw captures
 apps/ios-recorder/DerivedData/
+apps/ios-recorder/DerivedData*/
 apps/ios-recorder/.build/
 capture/csi-linux/raw/
 capture/csi-linux/tmp/
@@ -33,3 +34,5 @@ workspace/support/
 .vscode/
 .idea/
 .DS_Store
+**/xcuserdata/
+*.xcuserstate

@@ -2,9 +2,9 @@
 
 ## 开始工作前
 
-1. 先阅读 `/opt/witwin/docs/SESSION_CONTEXT_2026-07-15.md`。
+1. 先阅读 `/opt/witwin/docs/current/README.md` 和本次任务对应的分支状态文档。
 2. 默认使用中文与用户沟通。
-3. 工作目录默认是 `/opt/witwin`；科研资料入口位于 `/opt/witwin/workspace/project-docs`。
+3. 工作目录默认是 `/opt/witwin`；全部科研与工程文档的权威入口是 `/opt/witwin/docs`。
 
 ## Python 与 GPU 环境
 
@@ -25,8 +25,18 @@
 - 三端公共会话、时间和坐标协议：`/opt/witwin/schemas/session-format`。
 - 本地原始/处理中数据：`/opt/witwin/datasets`，默认不提交 Git。
 - `/opt/witwin/workspace/host_snapshot` 是 Windows 当前目录在 2026-07-15 的完整快照。除非用户明确要求，不要批量移动、重命名或删除其中内容。
-- `/opt/witwin/workspace/project-docs` 和 `/opt/witwin/workspace/support` 是整理后的符号链接入口；从这些入口编辑会修改快照中的对应文件。
-- 容器内生成的说明和交接文档统一放在 `/opt/witwin/docs`。
+- `/opt/witwin/workspace/project-docs` 仅保留旧入口说明，不再作为文档编辑位置。
+- `/opt/witwin/workspace/support` 和 `host_snapshot` 属于历史快照/辅助材料，不是当前文档源。
+
+## 文档管理
+
+- `docs/current/`：仍在维护的主计划、总进度和各分支最新状态；采用无日期文件名并原位更新。
+- `docs/history/`：带日期的阶段报告、旧版计划、已完成实验报告和环境交接；默认只读归档。
+- `docs/reference/`：长期有效的使用指南、工作流和技术调研。
+- 各代码目录只保留简短 `README.md` 说明职责、运行入口和权威文档链接；`schemas/` 中与格式实现共同演进的协议规范可继续就近维护。不要在 `pipelines/`、`apps/`、`capture/` 或 `workspace/` 新建独立进度报告。
+- 实验脚本、机器结果和图像继续放在 `pipelines/`；实验 Markdown 报告放在 `docs/history/branches/<branch>/experiments/`。
+- 完成阶段工作时，先更新 `docs/current/branches/<branch>.md`，再归档详细报告，并同步更新 `docs/current/项目当前进展与下一步方向.md`（若影响跨分支结论）。
+- 新文档不得复制维护另一份“当前状态”；应链接 `docs/current/` 中的权威文档。
 
 ## 分支职责
 
@@ -41,7 +51,7 @@
 
 - 当前已验证组合：WiTwin Core 0.0.2、WiTwin Channel 0.1.0、RayD 0.4.0、DrJit 1.3.1、PyTorch 2.10.0+cu128。
 - 不要在未做兼容性评估和回归验证的情况下升级 WiTwin Channel、RayD 或 DrJit。
-- 确定性信道及 LOS 路径、CIR、CFR 已通过；反射路径 `max_bounces > 0` 尚未通过当前上游组合验证，回答时必须保留这一限制。
+- 确定性信道及 LOS 路径、CIR、CFR 已通过；当前上游组合的原生反射 EPC 尚未通用通过。显式 DrJit 反射后端已有独立实验成功，但不能写成原生反射能力已经全面验证。
 
 ## 故障处理偏好
 
