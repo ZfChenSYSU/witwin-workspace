@@ -18,6 +18,33 @@
     {
       "if": {
         "properties": {
+          "schema_version": {
+            "const": "1.3.0"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "source",
+          "capture"
+        ],
+        "properties": {
+          "capture": {
+            "required": [
+              "video",
+              "arkit",
+              "motion"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "capture_stage": {
             "enum": [
               "phone_csi_p2",
@@ -92,7 +119,10 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.2.0"
+      "enum": [
+        "1.2.0",
+        "1.3.0"
+      ]
     },
     "session_id": {
       "type": "string",
@@ -122,6 +152,23 @@
         "failed",
         "validation_failed"
       ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspace_commit",
+        "build_identifier"
+      ],
+      "properties": {
+        "workspace_commit": {
+          "$ref": "#/$defs/gitCommitOrUnknown"
+        },
+        "build_identifier": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "git": {
       "type": "object",
@@ -281,6 +328,15 @@
           "type": "integer",
           "minimum": 0
         },
+        "video": {
+          "$ref": "#/$defs/videoSemantics"
+        },
+        "arkit": {
+          "$ref": "#/$defs/arkitSemantics"
+        },
+        "motion": {
+          "$ref": "#/$defs/motionSemantics"
+        },
         "udp": {
           "type": "object",
           "additionalProperties": true,
@@ -343,6 +399,104 @@
     "gitCommit": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$"
+    },
+    "gitCommitOrUnknown": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/gitCommit"
+        },
+        {
+          "const": "unknown"
+        }
+      ]
+    },
+    "videoSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "codec",
+        "container",
+        "expected_frame_rate_hz",
+        "orientation",
+        "mirrored",
+        "crop_policy",
+        "scaling_policy",
+        "stabilization_policy",
+        "video_frame_id_semantics"
+      ],
+      "properties": {
+        "codec": { "type": "string" },
+        "container": { "type": "string" },
+        "source_pixel_format_four_cc": { "type": "string" },
+        "expected_frame_rate_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "orientation": { "type": "string" },
+        "mirrored": { "type": "boolean" },
+        "crop_policy": { "type": "string" },
+        "scaling_policy": { "type": "string" },
+        "stabilization_policy": { "type": "string" },
+        "video_frame_id_semantics": {
+          "const": "zero_based_successful_asset_writer_sample_index"
+        }
+      }
+    },
+    "arkitSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pose_field_prefix",
+        "transform_convention",
+        "matrix_layout",
+        "coordinate_system",
+        "length_unit",
+        "intrinsics_matrix_layout",
+        "intrinsics_reference"
+      ],
+      "properties": {
+        "pose_field_prefix": { "type": "string" },
+        "transform_convention": { "const": "target_T_source" },
+        "matrix_layout": { "const": "row_major" },
+        "coordinate_system": { "type": "string" },
+        "length_unit": { "const": "m" },
+        "intrinsics_matrix_layout": { "const": "row_major" },
+        "intrinsics_reference": { "type": "string" }
+      }
+    },
+    "motionSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_update_rate_hz",
+        "attitude_reference_frame",
+        "quaternion_order",
+        "raw_samples_interpolated",
+        "recorded_streams",
+        "streams"
+      ],
+      "properties": {
+        "requested_update_rate_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "attitude_reference_frame": { "type": "string" },
+        "quaternion_order": { "const": "xyzw" },
+        "raw_samples_interpolated": { "const": false },
+        "recorded_streams": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "streams": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["unit", "reference_frame"],
+            "properties": {
+              "unit": { "type": "string" },
+              "reference_frame": { "type": "string" }
+            }
+          }
+        }
+      }
     },
     "macAddress": {
       "type": "string",

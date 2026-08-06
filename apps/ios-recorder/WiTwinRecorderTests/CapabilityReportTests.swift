@@ -141,6 +141,10 @@ final class CapabilityReportTests: XCTestCase {
             createdAt: "2026-07-29T04:00:00.000Z",
             completedAt: "2026-07-29T04:01:00.000Z",
             status: "completed",
+            source: .init(
+                workspaceCommit: "unknown",
+                buildIdentifier: "org.witwin.recorder/0.4.0(1)"
+            ),
             devices: .init(
                 phone: .init(
                     model: "iPhone",
@@ -167,6 +171,39 @@ final class CapabilityReportTests: XCTestCase {
                 thermalStateAtEnd: "fair",
                 availableCapacityBytesAtStart: 1_000_000,
                 availableCapacityBytesAtEnd: 900_000,
+                video: .init(
+                    codec: "hevc",
+                    container: "quicktime_mov",
+                    sourcePixelFormatFourCC: "420f",
+                    expectedFrameRateHz: 60,
+                    width: 1920,
+                    height: 1440,
+                    orientation: "arkit_captured_image_sensor_native",
+                    mirrored: false,
+                    cropPolicy: "none",
+                    scalingPolicy: "none",
+                    stabilizationPolicy: "no_additional_recorder_stabilization",
+                    videoFrameIDSemantics: "zero_based_successful_asset_writer_sample_index"
+                ),
+                arkit: .init(
+                    poseFieldPrefix: "world_T_rear_camera",
+                    transformConvention: "target_T_source",
+                    matrixLayout: "row_major",
+                    coordinateSystem: "right_handed_arkit_world",
+                    lengthUnit: "m",
+                    intrinsicsMatrixLayout: "row_major",
+                    intrinsicsReference: "frame.camera.imageResolution"
+                ),
+                motion: .init(
+                    requestedUpdateRateHz: 100,
+                    attitudeReferenceFrame: "xArbitraryZVertical",
+                    quaternionOrder: "xyzw",
+                    rawSamplesInterpolated: false,
+                    recordedStreams: ["accelerometer"],
+                    streams: [
+                        "accelerometer": .init(unit: "g", referenceFrame: "device_body")
+                    ]
+                ),
                 udp: nil
             ),
             files: []
@@ -174,11 +211,27 @@ final class CapabilityReportTests: XCTestCase {
 
         let data = try SessionJSON.encode(metadata)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object["schema_version"] as? String, "1.2.0")
+        XCTAssertEqual(object["schema_version"] as? String, "1.3.0")
         XCTAssertEqual(object["capture_stage"] as? String, "phone_only_p1")
         let devices = try XCTUnwrap(object["devices"] as? [String: Any])
         XCTAssertNotNil(devices["phone"])
         XCTAssertNil(devices["csi_receiver"])
+        let capture = try XCTUnwrap(object["capture"] as? [String: Any])
+        let video = try XCTUnwrap(capture["video"] as? [String: Any])
+        XCTAssertEqual(video["video_frame_id_semantics"] as? String,
+                       "zero_based_successful_asset_writer_sample_index")
+        let motion = try XCTUnwrap(capture["motion"] as? [String: Any])
+        XCTAssertEqual(motion["raw_samples_interpolated"] as? Bool, false)
+    }
+
+    func testVideoSampleIndexerOnlyAdvancesForAppendedSamples() {
+        var indexer = VideoSampleIndexer()
+
+        XCTAssertEqual(indexer.recordAppend(success: true), 0)
+        XCTAssertNil(indexer.recordAppend(success: false))
+        XCTAssertNil(indexer.recordAppend(success: false))
+        XCTAssertEqual(indexer.recordAppend(success: true), 1)
+        XCTAssertEqual(indexer.nextSampleID, 2)
     }
 
     func testSessionIntegrityValidatorAcceptsMinimalCompleteSession() throws {

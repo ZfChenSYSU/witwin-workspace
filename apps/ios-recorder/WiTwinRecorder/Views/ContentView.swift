@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var probe = CapabilityProbeService()
+    @StateObject private var faceDistance = FaceDistanceService()
     @StateObject private var recorder = SessionRecorder()
     @StateObject private var udpProbe = UDPProbeService()
     @State private var phoneAssemblyID = "phone-rig-001"
@@ -16,6 +17,7 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                faceDistanceSection
                 p2UDPProbeSection
                 p1RecordingSection
                 p1ResultSection
@@ -59,9 +61,44 @@ struct ContentView: View {
             .navigationTitle("WiTwin Recorder")
             .onChange(of: scenePhase) { phase in
                 if phase != .active {
+                    faceDistance.stop()
                     recorder.handleAppBecameInactive()
                     udpProbe.handleAppBecameInactive()
+                } else {
+                    faceDistance.start()
                 }
+            }
+            .onAppear {
+                faceDistance.start()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var faceDistanceSection: some View {
+        Section("实时人脸测距（调试）") {
+            Label(faceDistance.statusMessage, systemImage: faceDistance.isRunning ? "dot.radiowaves.left.and.right" : "circle.dashed")
+                .foregroundStyle(faceDistance.isRunning ? .blue : .secondary)
+
+            if let distance = faceDistance.distanceMeters {
+                valueRow("人脸中心—后置相机", String(format: "%.3f m（%.1f cm）", distance, distance * 100))
+                if let position = faceDistance.relativePositionMeters {
+                    valueRow(
+                        "相对坐标 x/y/z",
+                        String(format: "%.3f / %.3f / %.3f m", position.x, position.y, position.z)
+                    )
+                }
+                Text("这是 ARKit 世界坐标中人脸锚点中心到后置相机参考点的近似距离。前摄像头—机身外参和人脸—胸腔标定尚未完成，不能直接当作胸腔真值。")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            } else {
+                Text("尚未取得有效人脸距离；请保持整张脸可见、光线充足并等待跟踪状态变为 normal。")
+                    .foregroundStyle(.secondary)
+            }
+
+            Button(faceDistance.isRunning ? "重新测距" : "开始测距") {
+                faceDistance.stop()
+                faceDistance.start()
             }
         }
     }

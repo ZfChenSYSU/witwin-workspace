@@ -2,7 +2,185 @@ import ARKit
 import AVFoundation
 import CoreMotion
 import Foundation
+import simd
 import UIKit
+
+@MainActor
+final class FaceDistanceService: NSObject, ObservableObject {
+    @Published private(set) var isRunning = false
+    @Published private(set) var statusMessage = "尚未启动"
+    @Published private(set) var distanceMeters: Double?
+    @Published private(set) var relativePositionMeters: SIMD3<Float>?
+    @Published private(set) var trackingState = "unknown"
+
+    private let session = ARSession()
+    private var lastFileWriteUptimeNanoseconds: UInt64 = 0
+    private var latestFaceTransform: simd_float4x4?
+    private var latestFaceTracked = false
+    private var latestFaceTimestamp: TimeInterval?
+
+    override init() {
+        super.init()
+        session.delegate = self
+        session.delegateQueue = .main
+    }
+
+    func start() {
+        guard !isRunning else { return }
+        guard ARWorldTrackingConfiguration.isSupported,
+              ARWorldTrackingConfiguration.supportsUserFaceTracking else {
+            statusMessage = "当前设备不支持世界跟踪 + 用户人脸跟踪"
+            return
+        }
+
+        let configuration = ARWorldTrackingConfiguration()
+        configuration.userFaceTrackingEnabled = true
+        distanceMeters = nil
+        relativePositionMeters = nil
+        latestFaceTransform = nil
+        latestFaceTracked = false
+        latestFaceTimestamp = nil
+        trackingState = "等待 ARFrame / ARFaceAnchor"
+        statusMessage = "正在实时测距…请保持人脸正对前置摄像头"
+        isRunning = true
+        session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+    }
+
+    func stop() {
+        guard isRunning else { return }
+        session.pause()
+        isRunning = false
+        statusMessage = "已停止"
+    }
+
+    private func update(faceTransform: simd_float4x4, cameraTransform: simd_float4x4,
+                        isTracked: Bool, timestamp: TimeInterval) {
+        let facePosition = SIMD3<Float>(
+            faceTransform.columns.3.x,
+            faceTransform.columns.3.y,
+            faceTransform.columns.3.z
+        )
+        let cameraPosition = SIMD3<Float>(
+            cameraTransform.columns.3.x,
+            cameraTransform.columns.3.y,
+            cameraTransform.columns.3.z
+        )
+        let relativePosition = facePosition - cameraPosition
+        let distance = simd_length(relativePosition)
+
+        trackingState = isTracked ? "normal" : "face_not_tracked"
+        relativePositionMeters = relativePosition
+        distanceMeters = isTracked ? Double(distance) : nil
+        statusMessage = isTracked ? "实时测距中" : "人脸跟踪暂时丢失"
+
+        latestFaceTransform = faceTransform
+        latestFaceTracked = isTracked
+        latestFaceTimestamp = timestamp
+        persistSnapshot(cameraTransform: cameraTransform, timestamp: timestamp)
+    }
+
+    private func persistSnapshot(cameraTransform: simd_float4x4, timestamp: TimeInterval) {
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now - lastFileWriteUptimeNanoseconds >= 500_000_000 else { return }
+        lastFileWriteUptimeNanoseconds = now
+        var snapshot: [String: Any] = [
+            "timestamp_seconds": timestamp,
+            "ar_frame_received": true,
+            "face_anchor_seen": latestFaceTransform != nil,
+            "face_anchor_is_tracked": latestFaceTracked,
+            "camera_tracking_state": trackingState,
+            "coordinate_definition": "norm(arkit_world_T_face_anchor.translation - arkit_world_T_rear_camera.translation)",
+            "reference_warning": "未完成前摄像头—机身外参标定；这是人脸锚点中心到后置相机参考点的 ARKit 近似距离，不是胸腔真值。"
+        ]
+        if let faceTransform = latestFaceTransform, latestFaceTracked {
+            let facePosition = SIMD3<Float>(
+                faceTransform.columns.3.x,
+                faceTransform.columns.3.y,
+                faceTransform.columns.3.z
+            )
+            let cameraPosition = SIMD3<Float>(
+                cameraTransform.columns.3.x,
+                cameraTransform.columns.3.y,
+                cameraTransform.columns.3.z
+            )
+            let relativePosition = facePosition - cameraPosition
+            snapshot["distance_meters"] = Double(simd_length(relativePosition))
+            snapshot["relative_face_position_from_rear_camera_meters"] = [
+                Double(relativePosition.x), Double(relativePosition.y), Double(relativePosition.z)
+            ]
+            snapshot["face_anchor_timestamp_seconds"] = latestFaceTimestamp ?? timestamp
+        }
+        guard JSONSerialization.isValidJSONObject(snapshot),
+              let data = try? JSONSerialization.data(withJSONObject: snapshot, options: [.sortedKeys]) else {
+            return
+        }
+        if let distance = snapshot["distance_meters"] as? Double {
+            print(String(format: "WITWIN_FACE_DISTANCE distance_m=%.6f tracked=%@ ar_camera_state=%@", distance, latestFaceTracked ? "true" : "false", trackingState))
+        } else {
+            print("WITWIN_FACE_DISTANCE distance_m=nil face_anchor_seen=\(latestFaceTransform != nil) tracked=\(latestFaceTracked) ar_camera_state=\(trackingState)")
+        }
+        guard let documents = try? FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else { return }
+        try? data.write(
+            to: documents.appendingPathComponent("face_distance_live.json"),
+            options: [.atomic]
+        )
+    }
+}
+
+extension FaceDistanceService: ARSessionDelegate {
+    nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.trackingState = Self.trackingStateDescription(frame.camera.trackingState)
+            self.persistSnapshot(cameraTransform: frame.camera.transform, timestamp: frame.timestamp)
+        }
+    }
+
+    nonisolated func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        processFaceAnchors(anchors, session: session)
+    }
+
+    nonisolated func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        processFaceAnchors(anchors, session: session)
+    }
+
+    nonisolated private func processFaceAnchors(_ anchors: [ARAnchor], session: ARSession) {
+        guard let faceAnchor = anchors.compactMap({ $0 as? ARFaceAnchor }).first,
+              let frame = session.currentFrame else { return }
+        let faceTransform = faceAnchor.transform
+        let cameraTransform = frame.camera.transform
+        let isTracked = faceAnchor.isTracked
+        let timestamp = frame.timestamp
+        Task { @MainActor [weak self] in
+            self?.update(
+                faceTransform: faceTransform,
+                cameraTransform: cameraTransform,
+                isTracked: isTracked,
+                timestamp: timestamp
+            )
+        }
+    }
+
+    nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
+        Task { @MainActor [weak self] in
+            self?.statusMessage = "ARSession 失败：\(error.localizedDescription)"
+            self?.isRunning = false
+        }
+    }
+
+    private static func trackingStateDescription(_ state: ARCamera.TrackingState) -> String {
+        switch state {
+        case .normal: return "normal"
+        case .notAvailable: return "not_available"
+        case .limited(let reason): return "limited_\(String(describing: reason))"
+        }
+    }
+}
 
 @MainActor
 final class CapabilityProbeService: NSObject, ObservableObject {

@@ -41,6 +41,7 @@ final class RoomScanRecorder: NSObject {
     private var firstFrameTimestamp: TimeInterval?
     private var acceptingFrames = false
     private var frameID = 0
+    private var videoSampleIndexer = VideoSampleIndexer()
     private var faceTrackingActive = false
     private var didReportFatalError = false
     private var statistics = RoomScanStatistics()
@@ -127,6 +128,11 @@ final class RoomScanRecorder: NSObject {
             let writer = try AVAssetWriter(outputURL: videoURL, fileType: .mov)
             let width = CVPixelBufferGetWidth(pixelBuffer)
             let height = CVPixelBufferGetHeight(pixelBuffer)
+            statistics.videoWidth = width
+            statistics.videoHeight = height
+            statistics.sourcePixelFormatFourCC = Self.fourCC(
+                CVPixelBufferGetPixelFormatType(pixelBuffer)
+            )
             let settings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.hevc,
                 AVVideoWidthKey: width,
@@ -202,6 +208,7 @@ final class RoomScanRecorder: NSObject {
             } else {
                 statistics.videoDroppedFrameCount += 1
             }
+            let videoSampleID = videoSampleIndexer.recordAppend(success: appended)
 
             let cameraMatrix = MatrixFormatting.rowMajor(frame.camera.transform)
             let intrinsics = MatrixFormatting.rowMajor(frame.camera.intrinsics)
@@ -209,7 +216,7 @@ final class RoomScanRecorder: NSObject {
                 Self.decimal(frame.timestamp),
                 String(callbackPhoneMonotonicNanoseconds),
                 String(currentFrameID),
-                String(currentFrameID),
+                videoSampleID.map(String.init) ?? "-1",
                 Self.decimal(videoPTSSeconds),
                 appended ? "true" : "false"
             ]
@@ -350,5 +357,13 @@ private extension RoomScanRecorder {
 
     static func decimal<T: BinaryFloatingPoint>(_ value: T) -> String {
         String(format: "%.9f", Double(value))
+    }
+
+    static func fourCC(_ value: OSType) -> String {
+        let bytes = [24, 16, 8, 0].map { shift in
+            UInt8((value >> OSType(shift)) & 0xff)
+        }
+        return String(bytes: bytes, encoding: .ascii)
+            ?? String(format: "0x%08X", value)
     }
 }

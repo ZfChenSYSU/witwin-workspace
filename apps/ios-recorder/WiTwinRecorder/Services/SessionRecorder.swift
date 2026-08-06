@@ -414,6 +414,10 @@ final class SessionRecorder: ObservableObject {
             createdAt: ISO8601Timestamp.string(from: createdAt),
             completedAt: ISO8601Timestamp.string(from: Date()),
             status: status,
+            source: .init(
+                workspaceCommit: Self.workspaceCommit(),
+                buildIdentifier: Self.buildIdentifier()
+            ),
             devices: .init(
                 phone: .init(
                     model: UIDevice.current.model,
@@ -446,6 +450,37 @@ final class SessionRecorder: ObservableObject {
                 thermalStateAtEnd: Self.thermalDescription(ProcessInfo.processInfo.thermalState),
                 availableCapacityBytesAtStart: availableCapacityAtStart,
                 availableCapacityBytesAtEnd: Self.availableCapacity(for: directory),
+                video: .init(
+                    codec: "hevc",
+                    container: "quicktime_mov",
+                    sourcePixelFormatFourCC: room.sourcePixelFormatFourCC,
+                    expectedFrameRateHz: 60,
+                    width: room.videoWidth,
+                    height: room.videoHeight,
+                    orientation: "arkit_captured_image_sensor_native",
+                    mirrored: false,
+                    cropPolicy: "none",
+                    scalingPolicy: "none",
+                    stabilizationPolicy: "no_additional_recorder_stabilization",
+                    videoFrameIDSemantics: "zero_based_successful_asset_writer_sample_index"
+                ),
+                arkit: .init(
+                    poseFieldPrefix: "world_T_rear_camera",
+                    transformConvention: "target_T_source",
+                    matrixLayout: "row_major",
+                    coordinateSystem: "right_handed_arkit_world",
+                    lengthUnit: "m",
+                    intrinsicsMatrixLayout: "row_major",
+                    intrinsicsReference: "frame.camera.imageResolution"
+                ),
+                motion: .init(
+                    requestedUpdateRateHz: 100,
+                    attitudeReferenceFrame: "xArbitraryZVertical",
+                    quaternionOrder: "xyzw",
+                    rawSamplesInterpolated: false,
+                    recordedStreams: motion.samplesBySensor.keys.sorted(),
+                    streams: Self.motionStreamSemantics
+                ),
                 udp: udpConfiguration.map {
                     .init(
                         targetHost: $0.host,
@@ -652,6 +687,51 @@ private extension SessionRecorder {
         case "udp_tx.csv": return "udp_transmit_log"
         default: return "other"
         }
+    }
+
+    static var motionStreamSemantics: [String: SessionMetadata.MotionStream] {
+        [
+            "accelerometer": .init(unit: "g", referenceFrame: "device_body"),
+            "gyroscope": .init(unit: "rad/s", referenceFrame: "device_body"),
+            "device_motion_user_acceleration": .init(
+                unit: "g",
+                referenceFrame: "device_body"
+            ),
+            "device_motion_rotation_rate": .init(
+                unit: "rad/s",
+                referenceFrame: "device_body"
+            ),
+            "device_motion_gravity": .init(unit: "g", referenceFrame: "device_body"),
+            "device_motion_attitude_quaternion": .init(
+                unit: "unitless",
+                referenceFrame: "device_attitude_relative_to_xArbitraryZVertical"
+            ),
+            "device_motion_magnetic_field": .init(
+                unit: "uT",
+                referenceFrame: "device_body"
+            )
+        ]
+    }
+
+    static func workspaceCommit() -> String {
+        guard let value = Bundle.main.object(
+            forInfoDictionaryKey: "WITWINWorkspaceCommit"
+        ) as? String,
+              value.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil else {
+            return "unknown"
+        }
+        return value
+    }
+
+    static func buildIdentifier() -> String {
+        let identifier = Bundle.main.bundleIdentifier ?? "unknown"
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "unknown"
+        let build = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "unknown"
+        return "\(identifier)/\(version)(\(build))"
     }
 
     static func modelIdentifier() -> String {

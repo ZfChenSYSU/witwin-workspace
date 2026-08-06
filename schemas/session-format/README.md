@@ -1,4 +1,4 @@
-# Session Format v1.2
+# Session Format v1.3
 
 本目录是 iOS、CSI Linux 和 WSL/WiTwin 三端共享的数据契约。任何不向后兼容的
 字段或二进制格式修改，都必须提升协议版本并先合入 `main`。
@@ -11,6 +11,7 @@
 - `example-session.json`：最小示例；
 - `udp_probe_packet.md`：手机 UDP 探测包线格式；
 - `coordinate_frames.md`：坐标系、矩阵和变换命名约定。
+- `capture_files.md`：iPhone 视频、ARFrame 和 CoreMotion 文件级字段契约。
 
 ## 时间原则
 
@@ -35,9 +36,14 @@ t_csi = clock_scale * t_phone + clock_offset_ns
 - `unified_p4`：要求手机与 CSI 两端，并用于统一坐标后的联合数据。
 
 P1 和手机侧 UDP 预验证数据不得为了通过 schema 而伪造 CSI 设备、装配或时基。
-Schema 1.2.0 对 `phone_udp_p2` 强制要求 `capture.udp` 摘要和
+Schema 1.2.0 起对 `phone_udp_p2` 强制要求 `capture.udp` 摘要和
 `udp_transmit_log` 文件描述；仅对 `phone_csi_p2`/`unified_p4` 强制要求 CSI
 设备、装配和时基。
+
+Schema 1.3.0 增加 `source` 以及 `capture.video`、`capture.arkit`、
+`capture.motion` 机器可读语义，且修正 `video_frame_id`：只有真正写入 MOV 的
+样本才分配连续编号，未写入的 ARFrame 使用 `-1`。解析器仍必须读取既有 1.2.0
+session，并把缺少的新语义报告为兼容性警告，而不是自行猜测。
 
 ## 版本原则
 

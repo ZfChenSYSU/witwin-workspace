@@ -6,7 +6,7 @@
 /opt/witwin
 ```
 
-远程仓库：<https://github.com/ZfChenSYSU/witwin-workspace>
+远程仓库：[https://github.com/ZfChenSYSU/witwin-workspace](https://github.com/ZfChenSYSU/witwin-workspace)
 
 稳定集成分支是 `main`。日常开发使用三个设备工作分支：
 
@@ -135,7 +135,7 @@ git show v0.1.0
 推荐使用语义化版本号：
 
 - `v0.1.0`：增加一组可用功能或形成新的阶段基线。
-- `v0.1.1`：修复问题，不改变主要使用方式。
+- `v0.1.1`：修复问题，不改变主要使用方式。z
 - `v1.0.0`：形成明确、稳定并经过完整验证的正式版本。
 
 不要给尚未验证或经常变化的提交随意创建正式标签。标签推送到远程后不应反复移动或覆盖。

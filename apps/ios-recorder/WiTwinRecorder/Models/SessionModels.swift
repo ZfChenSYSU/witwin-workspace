@@ -15,7 +15,7 @@ enum RecordingState: String, Codable {
 }
 
 struct SessionMetadata: Codable, Equatable {
-    static let schemaVersion = "1.2.0"
+    static let schemaVersion = "1.3.0"
 
     let schemaVersion: String
     let sessionID: String
@@ -23,12 +23,18 @@ struct SessionMetadata: Codable, Equatable {
     let createdAt: String
     let completedAt: String
     let status: String
+    let source: Source
     let devices: Devices
     let assembly: Assembly
     let timebases: Timebases
     let coordinateConvention: String
     let capture: CaptureSummary
     let files: [SessionFile]
+
+    struct Source: Codable, Equatable {
+        let workspaceCommit: String
+        let buildIdentifier: String
+    }
 
     struct Devices: Codable, Equatable {
         let phone: Phone
@@ -69,7 +75,49 @@ struct SessionMetadata: Codable, Equatable {
         let thermalStateAtEnd: String
         let availableCapacityBytesAtStart: Int64?
         let availableCapacityBytesAtEnd: Int64?
+        let video: VideoSemantics
+        let arkit: ARKitSemantics
+        let motion: MotionSemantics
         let udp: UDPSummary?
+    }
+
+    struct VideoSemantics: Codable, Equatable {
+        let codec: String
+        let container: String
+        let sourcePixelFormatFourCC: String?
+        let expectedFrameRateHz: Double
+        let width: Int?
+        let height: Int?
+        let orientation: String
+        let mirrored: Bool
+        let cropPolicy: String
+        let scalingPolicy: String
+        let stabilizationPolicy: String
+        let videoFrameIDSemantics: String
+    }
+
+    struct ARKitSemantics: Codable, Equatable {
+        let poseFieldPrefix: String
+        let transformConvention: String
+        let matrixLayout: String
+        let coordinateSystem: String
+        let lengthUnit: String
+        let intrinsicsMatrixLayout: String
+        let intrinsicsReference: String
+    }
+
+    struct MotionSemantics: Codable, Equatable {
+        let requestedUpdateRateHz: Double
+        let attitudeReferenceFrame: String
+        let quaternionOrder: String
+        let rawSamplesInterpolated: Bool
+        let recordedStreams: [String]
+        let streams: [String: MotionStream]
+    }
+
+    struct MotionStream: Codable, Equatable {
+        let unit: String
+        let referenceFrame: String
     }
 
     struct UDPSummary: Codable, Equatable {
@@ -105,11 +153,24 @@ struct RoomScanStatistics: Equatable {
     var videoFrameCount = 0
     var videoDroppedFrameCount = 0
     var faceAnchorSampleCount = 0
+    var videoWidth: Int?
+    var videoHeight: Int?
+    var sourcePixelFormatFourCC: String?
 }
 
 struct MotionStatistics: Equatable {
     var sampleCount = 0
     var samplesBySensor: [String: Int] = [:]
+}
+
+struct VideoSampleIndexer: Equatable {
+    private(set) var nextSampleID = 0
+
+    mutating func recordAppend(success: Bool) -> Int? {
+        guard success else { return nil }
+        defer { nextSampleID += 1 }
+        return nextSampleID
+    }
 }
 
 struct SessionValidationReport: Codable, Equatable {

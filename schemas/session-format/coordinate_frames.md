@@ -17,6 +17,11 @@ p_target = target_T_source @ p_source
 矩阵为 4 × 4、右手坐标系、平移单位为米。文件存储采用行主序展开，并在每个
 具体格式中再次声明，防止语言库默认约定不同。
 
+iOS 0.4.0 的 `ar_frames.csv` 为兼容既有数据继续使用列前缀
+`world_T_rear_camera_00`…`world_T_rear_camera_33`。其规范含义就是
+`arkit_world_T_rear_camera`；`metadata.capture.arkit.pose_field_prefix` 明确记录
+实际列前缀。服务器 normalized manifest 可以改用规范名称，但不得改写原始 CSV。
+
 ## 基本坐标系
 
 | 名称 | 含义 |

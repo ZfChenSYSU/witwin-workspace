@@ -1,8 +1,12 @@
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "session_id": "session_20260728_001",
   "capture_stage": "phone_only_p1",
   "created_at": "2026-07-28T10:00:00Z",
+  "source": {
+    "workspace_commit": "0000000000000000000000000000000000000000",
+    "build_identifier": "org.witwin.recorder/0.4.0(1)"
+  },
   "git": {
     "workspace_commit": "0000000000000000000000000000000000000000",
     "witwin_core_commit": "897ee1cdee3b4f35fb0db0c153197f5ebfcce21f",
@@ -12,7 +16,7 @@
     "phone": {
       "model": "iPhone 11 Pro",
       "os_version": "record-at-capture",
-      "app_version": "0.3.0"
+      "app_version": "0.4.0"
     }
   },
   "assembly": {
@@ -25,5 +29,43 @@
     }
   },
   "coordinate_convention": "schemas/session-format/coordinate_frames.md",
+  "capture": {
+    "video": {
+      "codec": "hevc",
+      "container": "quicktime_mov",
+      "source_pixel_format_four_cc": "420f",
+      "expected_frame_rate_hz": 60,
+      "width": 1920,
+      "height": 1440,
+      "orientation": "arkit_captured_image_sensor_native",
+      "mirrored": false,
+      "crop_policy": "none",
+      "scaling_policy": "none",
+      "stabilization_policy": "no_additional_recorder_stabilization",
+      "video_frame_id_semantics": "zero_based_successful_asset_writer_sample_index"
+    },
+    "arkit": {
+      "pose_field_prefix": "world_T_rear_camera",
+      "transform_convention": "target_T_source",
+      "matrix_layout": "row_major",
+      "coordinate_system": "right_handed_arkit_world",
+      "length_unit": "m",
+      "intrinsics_matrix_layout": "row_major",
+      "intrinsics_reference": "frame.camera.imageResolution"
+    },
+    "motion": {
+      "requested_update_rate_hz": 100,
+      "attitude_reference_frame": "xArbitraryZVertical",
+      "quaternion_order": "xyzw",
+      "raw_samples_interpolated": false,
+      "recorded_streams": ["accelerometer"],
+      "streams": {
+        "accelerometer": {
+          "unit": "g",
+          "reference_frame": "device_body"
+        }
+      }
+    }
+  },
   "files": []
 }

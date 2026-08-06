@@ -34,6 +34,8 @@
 	<true/>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<key>WITWINWorkspaceCommit</key>
+	<string>$(WITWIN_WORKSPACE_COMMIT)</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
