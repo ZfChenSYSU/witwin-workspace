@@ -30,6 +30,10 @@ final class SessionRecorder: ObservableObject {
     @Published private(set) var elapsedSeconds: TimeInterval = 0
     @Published private(set) var lastSessionURL: URL?
     @Published private(set) var validationReport: SessionValidationReport?
+    @Published private(set) var rearCameraPreviewImage: UIImage?
+    @Published private(set) var liveFaceDistanceMeters: Double?
+    @Published private(set) var liveFaceRelativePositionMeters: SIMD3<Float>?
+    @Published private(set) var liveFaceMeasurementTimestamp: TimeInterval?
 
     private var roomRecorder: RoomScanRecorder?
     private var motionRecorder: MotionRecorder?
@@ -76,6 +80,10 @@ final class SessionRecorder: ObservableObject {
         statusMessage = "正在准备会话目录与采集模块…"
         validationReport = nil
         lastSessionURL = nil
+        rearCameraPreviewImage = nil
+        liveFaceDistanceMeters = nil
+        liveFaceRelativePositionMeters = nil
+        liveFaceMeasurementTimestamp = nil
 
         Task { @MainActor in
             do {
@@ -243,7 +251,27 @@ final class SessionRecorder: ObservableObject {
         let room = try RoomScanRecorder(
             sessionDirectory: directory,
             eventHandler: eventHandler,
-            errorHandler: errorHandler
+            errorHandler: errorHandler,
+            previewHandler: { [weak self] image in
+                Task { @MainActor in
+                    guard let self,
+                          self.state == .preparing
+                            || self.state == .recording
+                            || self.state == .stopping else { return }
+                    self.rearCameraPreviewImage = image
+                }
+            },
+            faceMeasurementHandler: { [weak self] distance, relativePosition, timestamp in
+                Task { @MainActor in
+                    guard let self,
+                          self.state == .preparing
+                            || self.state == .recording
+                            || self.state == .stopping else { return }
+                    self.liveFaceDistanceMeters = distance
+                    self.liveFaceRelativePositionMeters = relativePosition
+                    self.liveFaceMeasurementTimestamp = timestamp
+                }
+            }
         )
         let motion = try MotionRecorder(
             sessionDirectory: directory,
@@ -384,6 +412,10 @@ final class SessionRecorder: ObservableObject {
         roomRecorder = nil
         motionRecorder = nil
         udpSender = nil
+        rearCameraPreviewImage = nil
+        liveFaceDistanceMeters = nil
+        liveFaceRelativePositionMeters = nil
+        liveFaceMeasurementTimestamp = nil
     }
 
     private func writeProvisionalMetadata(directory: URL, status: String) throws {
@@ -560,6 +592,10 @@ final class SessionRecorder: ObservableObject {
         udpToStop?.stop { _ in }
         try? eventWriter?.close()
         eventWriter = nil
+        rearCameraPreviewImage = nil
+        liveFaceDistanceMeters = nil
+        liveFaceRelativePositionMeters = nil
+        liveFaceMeasurementTimestamp = nil
     }
 
     private func completeWithFailure(_ error: Error) {
@@ -567,6 +603,10 @@ final class SessionRecorder: ObservableObject {
         state = .failed
         statusMessage = "session 封装失败：\(error.localizedDescription)"
         lastSessionURL = sessionDirectory
+        rearCameraPreviewImage = nil
+        liveFaceDistanceMeters = nil
+        liveFaceRelativePositionMeters = nil
+        liveFaceMeasurementTimestamp = nil
     }
 }
 

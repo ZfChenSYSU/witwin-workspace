@@ -1,7 +1,10 @@
 import ARKit
 import AVFoundation
+import CoreImage
 import CoreMedia
 import Foundation
+import simd
+import UIKit
 
 enum RoomScanRecorderError: LocalizedError {
     case worldTrackingUnavailable
@@ -26,14 +29,27 @@ enum RoomScanRecorderError: LocalizedError {
 final class RoomScanRecorder: NSObject {
     typealias EventHandler = (_ type: String, _ detail: String, _ timestamp: TimeInterval) -> Void
     typealias ErrorHandler = (_ error: Error) -> Void
+    typealias PreviewHandler = (_ image: UIImage) -> Void
+    typealias FaceMeasurementHandler = (
+        _ distanceMeters: Double?,
+        _ relativePositionMeters: SIMD3<Float>?,
+        _ timestamp: TimeInterval
+    ) -> Void
 
     private let session = ARSession()
     private let recordingQueue = DispatchQueue(label: "org.witwin.recorder.arkit")
+    private let previewQueue = DispatchQueue(
+        label: "org.witwin.recorder.camera-preview",
+        qos: .userInitiated
+    )
+    private let previewContext = CIContext(options: [.cacheIntermediates: false])
     private let videoURL: URL
     private let arWriter: CSVWriter
     private let faceWriter: CSVWriter
     private let eventHandler: EventHandler
     private let errorHandler: ErrorHandler
+    private let previewHandler: PreviewHandler
+    private let faceMeasurementHandler: FaceMeasurementHandler
 
     private var assetWriter: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
@@ -45,11 +61,17 @@ final class RoomScanRecorder: NSObject {
     private var faceTrackingActive = false
     private var didReportFatalError = false
     private var statistics = RoomScanStatistics()
+    private var lastPreviewTimestamp: TimeInterval = -.infinity
+    private var previewConversionPending = false
+    private var lastRecordedFrameTimestamp: TimeInterval?
+    private var lastRecordedFrameID: Int?
 
     init(
         sessionDirectory: URL,
         eventHandler: @escaping EventHandler,
-        errorHandler: @escaping ErrorHandler
+        errorHandler: @escaping ErrorHandler,
+        previewHandler: @escaping PreviewHandler = { _ in },
+        faceMeasurementHandler: @escaping FaceMeasurementHandler = { _, _, _ in }
     ) throws {
         videoURL = sessionDirectory.appendingPathComponent("rear_video.mov")
         arWriter = try CSVWriter(
@@ -62,6 +84,8 @@ final class RoomScanRecorder: NSObject {
         )
         self.eventHandler = eventHandler
         self.errorHandler = errorHandler
+        self.previewHandler = previewHandler
+        self.faceMeasurementHandler = faceMeasurementHandler
         super.init()
         session.delegate = self
         session.delegateQueue = recordingQueue
@@ -226,6 +250,9 @@ final class RoomScanRecorder: NSObject {
             row.append(String(Int(frame.camera.imageResolution.height)))
             row.append(MatrixFormatting.trackingState(frame.camera.trackingState))
             try arWriter.append(row)
+            lastRecordedFrameTimestamp = frame.timestamp
+            lastRecordedFrameID = currentFrameID
+            enqueuePreviewIfNeeded(frame)
 
             if !appended, assetWriter?.status == .failed {
                 throw assetWriter?.error
@@ -236,25 +263,87 @@ final class RoomScanRecorder: NSObject {
         }
     }
 
+    private func enqueuePreviewIfNeeded(_ frame: ARFrame) {
+        guard !previewConversionPending,
+              frame.timestamp - lastPreviewTimestamp >= Self.previewInterval else { return }
+
+        lastPreviewTimestamp = frame.timestamp
+        previewConversionPending = true
+        let pixelBuffer = frame.capturedImage
+
+        previewQueue.async { [weak self] in
+            guard let self else { return }
+            let previewImage: UIImage? = autoreleasepool {
+                // The app is portrait-only; ARKit exposes the rear sensor buffer in its
+                // native landscape orientation, so rotate only the UI preview.
+                let source = CIImage(cvPixelBuffer: pixelBuffer).oriented(.right)
+                let longestEdge = max(source.extent.width, source.extent.height)
+                let scale = min(1, Self.previewMaximumEdge / longestEdge)
+                let scaled = source.transformed(
+                    by: CGAffineTransform(scaleX: scale, y: scale)
+                )
+                guard let cgImage = self.previewContext.createCGImage(
+                    scaled,
+                    from: scaled.extent.integral
+                ) else { return nil }
+                return UIImage(cgImage: cgImage)
+            }
+
+            if let previewImage {
+                self.previewHandler(previewImage)
+            }
+            self.recordingQueue.async { [weak self] in
+                self?.previewConversionPending = false
+            }
+        }
+    }
+
     private func recordFaceAnchors(_ anchors: [ARAnchor], event: String) {
-        guard acceptingFrames else { return }
-        let timestamp = session.currentFrame?.timestamp ?? ProcessInfo.processInfo.systemUptime
+        guard acceptingFrames, let currentFrame = session.currentFrame else { return }
+        let timestamp = currentFrame.timestamp
         let callbackPhoneMonotonicNanoseconds = DispatchTime.now().uptimeNanoseconds
-        let associatedFrameID = max(0, frameID - 1)
+        let associatedFrameID: Int
+        if lastRecordedFrameTimestamp == timestamp, let lastRecordedFrameID {
+            associatedFrameID = lastRecordedFrameID
+        } else {
+            // ARAnchor callbacks can precede the ARFrame callback for the same
+            // currentFrame. In that case frameID is the ID that frame will receive.
+            associatedFrameID = frameID
+        }
+        let cameraPosition = SIMD3<Float>(
+            currentFrame.camera.transform.columns.3.x,
+            currentFrame.camera.transform.columns.3.y,
+            currentFrame.camera.transform.columns.3.z
+        )
 
         for faceAnchor in anchors.compactMap({ $0 as? ARFaceAnchor }) {
             do {
+                let facePosition = SIMD3<Float>(
+                    faceAnchor.transform.columns.3.x,
+                    faceAnchor.transform.columns.3.y,
+                    faceAnchor.transform.columns.3.z
+                )
+                let relativePosition = facePosition - cameraPosition
+                let distanceMeters = faceAnchor.isTracked
+                    ? Double(simd_length(relativePosition))
+                    : nil
                 var row = [
                     Self.decimal(timestamp),
                     String(callbackPhoneMonotonicNanoseconds),
                     String(associatedFrameID),
                     faceAnchor.identifier.uuidString,
                     faceAnchor.isTracked ? "true" : "false",
-                    event
+                    event,
+                    distanceMeters.map(Self.decimal) ?? ""
                 ]
                 row.append(contentsOf: MatrixFormatting.rowMajor(faceAnchor.transform).map(Self.decimal))
                 try faceWriter.append(row)
                 statistics.faceAnchorSampleCount += 1
+                faceMeasurementHandler(
+                    distanceMeters,
+                    faceAnchor.isTracked ? relativePosition : nil,
+                    timestamp
+                )
 
                 if faceAnchor.isTracked != faceTrackingActive {
                     faceTrackingActive = faceAnchor.isTracked
@@ -296,6 +385,7 @@ extension RoomScanRecorder: ARSessionDelegate {
         guard !removedFaces.isEmpty else { return }
         let timestamp = session.currentFrame?.timestamp ?? ProcessInfo.processInfo.systemUptime
         faceTrackingActive = false
+        faceMeasurementHandler(nil, nil, timestamp)
         for face in removedFaces {
             eventHandler("face_tracking_removed", face.identifier.uuidString, timestamp)
         }
@@ -323,6 +413,9 @@ extension RoomScanRecorder: ARSessionDelegate {
 }
 
 private extension RoomScanRecorder {
+    static let previewInterval: TimeInterval = 0.1
+    static let previewMaximumEdge: CGFloat = 640
+
     static let matrix4Columns = (0..<4).flatMap { row in
         (0..<4).map { column in "world_T_rear_camera_\(row)\(column)" }
     }
@@ -352,7 +445,8 @@ private extension RoomScanRecorder {
         "frame_id",
         "anchor_id",
         "is_tracked",
-        "event"
+        "event",
+        "face_distance_m"
     ] + faceMatrixColumns
 
     static func decimal<T: BinaryFloatingPoint>(_ value: T) -> String {

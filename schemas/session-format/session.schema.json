@@ -19,7 +19,10 @@
       "if": {
         "properties": {
           "schema_version": {
-            "const": "1.3.0"
+            "enum": [
+              "1.3.0",
+              "1.4.0"
+            ]
           }
         },
         "required": [
@@ -121,7 +124,8 @@
     "schema_version": {
       "enum": [
         "1.2.0",
-        "1.3.0"
+        "1.3.0",
+        "1.4.0"
       ]
     },
     "session_id": {

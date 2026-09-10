@@ -1,6 +1,7 @@
 # iPhone 采集文件契约
 
-本文定义 Schema 1.3.0 下 `rear_video.mov`、`ar_frames.csv` 和 `imu.csv` 的机器
+本文定义 Schema 1.4.0 下 `rear_video.mov`、`ar_frames.csv`、`face_anchors.csv`
+和 `imu.csv` 的机器
 语义。所有 CSV 使用 UTF-8、首行为表头，布尔值写为 `true`/`false`，原始记录
 不得在采集端插值或静默修复。
 
@@ -53,6 +54,24 @@ timestamp_seconds,callback_phone_monotonic_ns,sample_id,sensor_type,x,y,z,w,accu
 
 请求频率当前为 100 Hz；实际频率必须由时间戳重新估计。缺流、间隙和中断必须在
 导入报告中显式呈现，不能把请求频率当作实际频率。
+
+## face_anchors.csv
+
+Schema 1.4.0 固定列为：
+
+```text
+timestamp_seconds,callback_phone_monotonic_ns,frame_id,anchor_id,is_tracked,event,
+face_distance_m,arkit_world_T_face_anchor_00..arkit_world_T_face_anchor_33
+```
+
+- `timestamp_seconds` 与所关联 `ARFrame.timestamp` 完全相同；`frame_id` 必须指向
+  `ar_frames.csv` 中该时间戳的同一帧，不能按回调先后猜测上一帧。
+- `face_distance_m` 仅在 `is_tracked=true` 时有效，定义为同一 ARKit 世界坐标系下
+  人脸锚点中心与后置相机参考点平移向量之差的欧氏范数，单位米。
+- 该距离是 ARKit 人脸锚点到后置相机参考点的近似观测，不等于胸腔真值；前摄像头
+  —机身外参、人脸—胸腔映射及误差模型仍需独立标定。
+- 录制期间的前台距离和本 CSV 必须来自 Recorder 的同一个 ARSession；不得再启动
+  第二个 ARSession 与后置视频采集竞争相机资源。
 
 ## 构建来源
 

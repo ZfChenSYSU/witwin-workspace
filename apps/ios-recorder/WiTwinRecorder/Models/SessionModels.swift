@@ -15,7 +15,7 @@ enum RecordingState: String, Codable {
 }
 
 struct SessionMetadata: Codable, Equatable {
-    static let schemaVersion = "1.3.0"
+    static let schemaVersion = "1.4.0"
 
     let schemaVersion: String
     let sessionID: String

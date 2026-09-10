@@ -105,6 +105,45 @@ awk -F, '
   }
 ' "$session_dir/imu.csv"
 
+awk -F, '
+  FNR == 1 {
+    file += 1
+    if (file == 2) {
+      columns = NF
+      if (columns != 22 && columns != 23) {
+        print "错误：face_anchors.csv 表头列数不是兼容的 22 或 23" > "/dev/stderr"
+        exit 1
+      }
+    }
+    next
+  }
+  file == 1 {
+    ar_timestamp[$3] = $1
+    next
+  }
+  file == 2 {
+    if (NF != columns) {
+      print "错误：face_anchors.csv 第 " FNR " 行列数错误" > "/dev/stderr"
+      exit 1
+    }
+    if (columns == 23) {
+      if (!($3 in ar_timestamp) || ($1 - ar_timestamp[$3] > 0.000001) || (ar_timestamp[$3] - $1 > 0.000001)) {
+        print "错误：face_anchors.csv 第 " FNR " 行 frame_id 与 AR 时间戳不一致" > "/dev/stderr"
+        exit 1
+      }
+      if ($5 == "true" && ($7 == "" || $7 <= 0)) {
+        print "错误：face_anchors.csv 第 " FNR " 行缺少有效人脸距离" > "/dev/stderr"
+        exit 1
+      }
+    }
+    face_count += 1
+    if ($5 == "true") tracked_count += 1
+  }
+  END {
+    printf "Face anchors=%d, tracked=%d\n", face_count, tracked_count
+  }
+' "$session_dir/ar_frames.csv" "$session_dir/face_anchors.csv"
+
 if [[ -f "$session_dir/udp_tx.csv" ]]; then
   awk -F, '
     NR == 1 {
@@ -146,6 +185,12 @@ if ! awk -F, 'NR > 1 && $3 == "session_started" { started=1 }
                NR > 1 && $3 == "session_stopped" { stopped=1 }
                END { exit !(started && stopped) }' "$session_dir/events.csv"; then
   echo "错误：events.csv 缺少 session_started 或 session_stopped" >&2
+  exit 1
+fi
+
+if awk -F, 'NR > 1 && $3 == "arkit_interrupted" { found=1 }
+            END { exit !found }' "$session_dir/events.csv"; then
+  echo "错误：采集期间 ARKit 会话发生中断" >&2
   exit 1
 fi
 

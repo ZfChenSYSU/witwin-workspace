@@ -143,7 +143,7 @@ final class CapabilityReportTests: XCTestCase {
             status: "completed",
             source: .init(
                 workspaceCommit: "unknown",
-                buildIdentifier: "org.witwin.recorder/0.4.0(1)"
+                buildIdentifier: "org.witwin.recorder/0.5.0(1)"
             ),
             devices: .init(
                 phone: .init(
@@ -211,7 +211,7 @@ final class CapabilityReportTests: XCTestCase {
 
         let data = try SessionJSON.encode(metadata)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object["schema_version"] as? String, "1.3.0")
+        XCTAssertEqual(object["schema_version"] as? String, "1.4.0")
         XCTAssertEqual(object["capture_stage"] as? String, "phone_only_p1")
         let devices = try XCTUnwrap(object["devices"] as? [String: Any])
         XCTAssertNotNil(devices["phone"])
@@ -265,11 +265,17 @@ final class CapabilityReportTests: XCTestCase {
 
         let faceHeader = [
             "timestamp_seconds", "callback_phone_monotonic_ns", "frame_id",
-            "anchor_id", "is_tracked", "event"
+            "anchor_id", "is_tracked", "event", "face_distance_m"
         ] + (0..<16).map { "f\($0)" }
+        let faceMatrix = (0..<16).map { index -> String in
+            if index == 3 { return "0.3" }
+            return index % 5 == 0 ? "1" : "0"
+        }
         try writeCSV(
             header: faceHeader,
-            rows: [],
+            rows: [[
+                "100.0", "100000000004", "0", "face-test", "true", "updated", "0.3"
+            ] + faceMatrix],
             to: directory.appendingPathComponent("face_anchors.csv")
         )
 
@@ -304,6 +310,8 @@ final class CapabilityReportTests: XCTestCase {
         XCTAssertEqual(report.statistics.arFrameCount, 1)
         XCTAssertEqual(report.statistics.videoFrameCount, 1)
         XCTAssertEqual(report.statistics.imuSampleCount, 3)
+        XCTAssertEqual(report.statistics.faceAnchorSampleCount, 1)
+        XCTAssertEqual(report.statistics.faceTrackedSampleCount, 1)
 
         try Data(#"{"capture_stage":"phone_udp_p2"}"#.utf8).write(
             to: directory.appendingPathComponent("metadata.json")
@@ -318,6 +326,23 @@ final class CapabilityReportTests: XCTestCase {
                 $0.contains("phone_udp_p2") && $0.contains("udp_tx.csv")
             }
         )
+
+        try Data("{}".utf8).write(to: directory.appendingPathComponent("metadata.json"))
+        try writeCSV(
+            header: ["timestamp_seconds", "wall_time", "event_type", "detail"],
+            rows: [
+                ["100.0", "2026-07-29T04:00:00Z", "session_started", "phone_only_p1"],
+                ["100.5", "2026-07-29T04:00:00Z", "arkit_interrupted", "test"],
+                ["101.0", "2026-07-29T04:00:01Z", "session_stopped", "user"]
+            ],
+            to: directory.appendingPathComponent("events.csv")
+        )
+        let interruptedReport = try SessionIntegrityValidator.validate(
+            sessionID: "session_test_interrupted",
+            directory: directory
+        )
+        XCTAssertFalse(interruptedReport.passed)
+        XCTAssertTrue(interruptedReport.errors.contains { $0.contains("ARKit") })
     }
 
     @MainActor

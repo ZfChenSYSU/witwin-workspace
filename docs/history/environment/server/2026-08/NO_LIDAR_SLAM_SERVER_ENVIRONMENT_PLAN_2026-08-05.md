@@ -5,14 +5,14 @@
 计划根目录：`/root/nfs/chenzhf/witwin`
 状态：**仅完成调研、只读审计与方案设计，尚未在目标服务器创建目录、传输数据、克隆源码或安装环境。**
 
-WiTwin 本体的迁移与安装方案单独记录在
-[`WITWIN_SERVER_MIGRATION_PLAN_2026-08-05.md`](WITWIN_SERVER_MIGRATION_PLAN_2026-08-05.md)，
+WiTwin 本体的迁移与安装方案当时单独记录在
+`WITWIN_SERVER_MIGRATION_PLAN_2026-08-05.md`（原始依赖文档当前未收入本仓库），
 本文只讨论 iPhone 11 Pro 无 LiDAR 条件下的 SLAM/SfM/MVS 空间建模环境。
 
 ## 1. 方法选择
 
 依据
-[`IPHONE_SLAM_SPATIAL_MODELING_RESEARCH_2026-07-29.md`](../reference/research/IPHONE_SLAM_SPATIAL_MODELING_RESEARCH_2026-07-29.md)，
+[`IPHONE_SLAM_SPATIAL_MODELING_RESEARCH_2026-07-29.md`](../../../../reference/research/IPHONE_SLAM_SPATIAL_MODELING_RESEARCH_2026-07-29.md)，
 当前无 LiDAR 主方法固定为：
 
 ```text

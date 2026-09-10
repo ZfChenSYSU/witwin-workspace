@@ -6,10 +6,13 @@
 
 - `project/early/`：项目早期问题描述、可行性分析和旧版计划。
 - `project/2026-07/`：前置深度方案等阶段性设计文档。
+- `decisions/`：已经作出的技术路线和设备迁移决定。
 - `branches/work-ios-recorder/`：iOS 分支的实施上下文和历史进度。
 - `branches/work-wsl-witwin/experiments/`：已完成的 WiTwin 仿真报告与配置。
+- `branches/work-wsl-witwin/2026-08/`：WSL/COLMAP 重建验证报告。
 - `integration/2026-07/`：iPhone、Linux 和 CSI 的跨端联合验证报告。
+- `integration/2026-08/`：iPhone 到 WSL/服务器的旧导入与建模方案。
+- `environment/server/2026-08/`：旧服务器部署、安装、能力和操作记录。
 - `environment/`：容器环境生成记录和旧会话交接。
 
 实验报告中的脚本、数据和图片链接仍指向 `pipelines/` 下的可复现产物。移动报告不改变实验代码和证据文件的位置。
-

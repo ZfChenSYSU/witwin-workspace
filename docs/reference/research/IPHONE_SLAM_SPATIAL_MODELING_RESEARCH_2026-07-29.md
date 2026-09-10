@@ -5,7 +5,7 @@
 
 关联文档：
 
-- [`前置深度增强的科研项目待办与验证计划`](../../current/project/前置深度增强的科研项目待办与验证计划.md)
+- [`研究设计与验证标准`](../../current/project/研究设计与验证标准.md)
 - [`iPhone 11 Pro 多模态采集与 SLAM 建模工程交接`](../../history/branches/work-ios-recorder/IPHONE_11_PRO_IMPLEMENTATION_CONTEXT.md)
 - [`视频 SLAM 与房间三维重建`](../../../pipelines/reconstruction/README.md)
 

@@ -1,6 +1,6 @@
 # iOS Recorder
 
-此目录用于 Mac/Xcode 上开发 iPhone 11 Pro 多模态采集应用，对应工作分支
+此目录用于 Mac/Xcode 上开发带 LiDAR iPhone 的多模态采集应用，对应工作分支
 `work/ios-recorder`。
 
 当前完成情况、缺口和下一步统一记录在 [`docs/current/branches/work-ios-recorder.md`](../../docs/current/branches/work-ios-recorder.md)。本 README 只说明应用职责和使用方式。
@@ -15,15 +15,19 @@
 
 ## 工程边界
 
-iPhone 11 Pro 没有后置 LiDAR，不依赖 `sceneDepth`、`ARMeshAnchor`、RoomPlan 或
-ARKit 场景网格。房间模型由后置视频、VIO/IMU 和离线重建流水线生成。
+当前路线改用带后置 LiDAR 的 iPhone。既有 iPhone 11 Pro 实现和测试仍是 RGB、
+ARKit、CoreMotion、人脸跟踪与 UDP 链路的历史基线；`sceneDepth`、置信度、
+`ARMeshAnchor` 或 RoomPlan 等输出尚需在目标设备上确定和验证。迁移任务见
+[`LiDAR iPhone 与 WiTwin 服务器迁移计划`](../../docs/current/project/LiDAR与服务器迁移计划.md)。
 
-主应用正式建立前，先实现能力探针并在目标 iOS 版本真机检查：
+在目标 LiDAR iPhone 和目标 iOS 版本上先扩展能力探针，至少复核：
 
 ```swift
 ARWorldTrackingConfiguration.isSupported
 ARWorldTrackingConfiguration.supportsUserFaceTracking
 ARFaceTrackingConfiguration.isSupported
+ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth)
+ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
 ```
 
 推荐后续使用 XcodeGen 或 Tuist 保存可复现工程定义，避免只提交某台 Mac 的本地
@@ -32,7 +36,7 @@ Xcode 状态。`DerivedData/` 和本地构建产物已被 Git 忽略。
 ## 当前实现
 
 已建立 `WiTwinRecorder.xcodeproj`、共享 Scheme 和对应的 `project.yml`。当前
-App 版本为 0.3.0。
+App 版本为 0.5.0。
 
 ### P0 能力探针
 
@@ -47,7 +51,7 @@ App 版本为 0.3.0。
 - 记录相机设备、CoreMotion 可用性、存储空间和热状态；
 - 将稳定排序、snake_case 字段的结果原子写入
   `Documents/capabilities.json`，并在界面中提供系统分享入口；
-- 明确标记模拟器结果不能作为 iPhone 11 Pro 真机能力证据。
+- 明确标记模拟器结果不能作为目标 iPhone 的真机能力证据。
 
 `capabilities.json` 是设备能力探针，不替代完整 session 的
 `schemas/session-format/session.schema.json`。
@@ -59,9 +63,13 @@ App 版本为 0.3.0。
 - `idle -> preparing -> recording -> stopping -> completed/failed` 状态机；
 - 每次建立独立的 `Documents/Sessions/session_YYYYMMDD_HHMMSS/`；
 - 使用同一个 `ARFrame.capturedImage` 写入 HEVC/MOV 并生成逐帧映射；
+- 采集期间从同一 `ARFrame.capturedImage` 异步生成约 10 fps、最长边 640 像素的
+  非全屏前台预览；预览只用于构图，不改变原始帧、视频 PTS 或 ARKit 时间戳；
 - 连续保存 ARKit 世界位姿、内参、图像尺寸和 tracking state；
 - 以 100 Hz 目标频率记录加速度计、陀螺仪和 Device Motion；
 - 持续保存 `ARFaceAnchor.transform`、`isTracked` 和跟踪事件；
+- 录制期间使用同一个 ARSession 同时提供前台人脸距离和后置视频，并在
+  `face_anchors.csv` 直接保存逐样本 `face_distance_m`；
 - 保存装配编号、人工标记、热状态和起止可用存储空间；
 - 停止后生成 `metadata.json`、`validation_report.json` 和
   `checksums.sha256`；
@@ -82,7 +90,7 @@ validation_report.json
 checksums.sha256
 ```
 
-公共 session schema 已升级到 1.2.0，并用 `capture_stage=phone_only_p1` 明确
+公共 session schema 已升级到 1.4.0，并用 `capture_stage=phone_only_p1` 明确
 P1 不需要伪造 CSI 设备、装配或时基。
 
 ### P2 直连 IP UDP 上行
@@ -103,10 +111,10 @@ App 已加入独立 UDP 测试和 Recorder 同进程集成：
 PicoScenes/Linux 端先启动 ACK 接收器：
 
 ```bash
-/opt/witwin/venv/bin/python /opt/witwin/capture/csi-linux/udp_probe_receiver.py \
+/path/to/project-python capture/csi-linux/udp_probe_receiver.py \
   --bind 0.0.0.0 \
   --port 5201 \
-  --output /opt/witwin/capture/csi-linux/raw/udp_probe.csv
+  --output /path/to/runtime-data/udp_probe.csv
 ```
 
 看到 `WTWN UDP receiver listening` 后，再在手机点击“开始发包”。iPerf3 TCP
@@ -180,6 +188,9 @@ xcodegen generate
 - P2 手机端证据保存在
   `datasets/iphone11pro-p2-udp-20260730/` 和
   `datasets/iphone11pro-p2-integrated-20260730/`。
+- 2026-08-07 的 App 0.5.0 单 ARSession 回归通过：前台后置预览、后置原始视频、
+  前置人脸距离、ARKit 和 IMU 同时采集；15.18 秒交互 session 中视频/ARKit 均为
+  912 帧且 0 丢帧，761 条有效人脸距离与同帧位姿严格一致，未发生 ARKit 中断。
 
 ## 离线完整性复核
 
@@ -193,8 +204,9 @@ apps/ios-recorder/scripts/check_p1_session.sh \
 
 ## 真机验证
 
-真机接入步骤和 P0 通过条件见
-[`iPhone 11 Pro P0 真机检查`](../../docs/reference/ios/TRUE_DEVICE_CHECKLIST.md)。在生成并导出真实
+既有 iPhone 11 Pro 接入步骤和 P0 通过条件见
+[`iPhone 11 Pro P0 真机检查`](../../docs/reference/ios/TRUE_DEVICE_CHECKLIST.md)，目标设备新增要求见
+[`iPhone LiDAR 采集与标定指南`](../../docs/reference/ios/LiDAR采集与标定指南.md)。在生成并导出真实
 `capabilities.json` 前，只能认为工程“编译通过”，不能认为设备能力或并发跟踪
 已经通过。
 

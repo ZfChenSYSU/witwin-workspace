@@ -180,4 +180,4 @@ OPENCV 相机、最大图像尺寸 800、PatchMatch 5 samples × 2 iterations。
 ```
 
 首次验收的完整记录见
-[COLMAP 官方数据集首次验证报告](COLMAP官方数据集首次验证报告_2026-08-06.md)。
+[COLMAP 官方数据集首次验证报告](../../branches/work-wsl-witwin/2026-08/COLMAP官方数据集首次验证报告_2026-08-06.md)。

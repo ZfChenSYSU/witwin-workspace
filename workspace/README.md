@@ -1,6 +1,7 @@
-# 容器工作区导航
+# 历史工作区导航
 
-本目录用于把 Windows 的 `25春新进度` 资料与 WiTwin 容器开发环境放在同一工作区中。
+本目录保留 Windows 的 `25春新进度` 快照和旧容器辅助材料。当前开发入口是仓库根目录，
+服务器迁移和 LiDAR iPhone 方案以 `docs/current/` 为准。
 
 ## 推荐入口
 
@@ -24,9 +25,9 @@
 
 `project-docs/` 现在只保留迁移提示；科研文档已经集中到仓库根目录的 `docs/`。`support/` 仍是 OptiX 等辅助材料入口。
 
-## 重要提示
+## 历史环境提示
 
 - 这不是 Windows 目录的实时挂载；容器内修改不会自动回写 Windows。
 - 不要把 `host_snapshot/` 当作可随意清理的缓存。
-- Python 代码应使用 `/opt/witwin/venv/bin/python`。
-- 开始新的 Codex 对话前先阅读 `/opt/witwin/docs/current/README.md` 和对应分支状态；在 `/opt/witwin` 下工作时，Codex 也会自动读取 `/opt/witwin/AGENTS.md`。
+- `/opt/witwin/venv/bin/python` 和 `/opt/witwin/...` 只描述旧容器/WSL 环境，不是 Mac 或新服务器的默认路径。
+- 当前任务先阅读仓库根目录 `AGENTS.md`、`docs/current/README.md` 和对应分支状态。

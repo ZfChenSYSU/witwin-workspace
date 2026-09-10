@@ -64,12 +64,23 @@ struct ContentView: View {
                     faceDistance.stop()
                     recorder.handleAppBecameInactive()
                     udpProbe.handleAppBecameInactive()
-                } else {
+                } else if !recorder.isBusy {
+                    faceDistance.start()
+                }
+            }
+            .onChange(of: recorder.state) { state in
+                if state == .preparing {
+                    // Recording uses the same ARSession for rear frames and
+                    // front-face tracking; retire the idle-only ARSession.
+                    faceDistance.stop()
+                } else if !recorder.isBusy, scenePhase == .active {
                     faceDistance.start()
                 }
             }
             .onAppear {
-                faceDistance.start()
+                if !recorder.isBusy {
+                    faceDistance.start()
+                }
             }
         }
     }
@@ -77,12 +88,17 @@ struct ContentView: View {
     @ViewBuilder
     private var faceDistanceSection: some View {
         Section("实时人脸测距（调试）") {
-            Label(faceDistance.statusMessage, systemImage: faceDistance.isRunning ? "dot.radiowaves.left.and.right" : "circle.dashed")
-                .foregroundStyle(faceDistance.isRunning ? .blue : .secondary)
+            Label(
+                displayedFaceStatusMessage,
+                systemImage: displayedFaceDistanceMeters != nil
+                    ? "dot.radiowaves.left.and.right"
+                    : "circle.dashed"
+            )
+            .foregroundStyle(displayedFaceDistanceMeters != nil ? .blue : .secondary)
 
-            if let distance = faceDistance.distanceMeters {
+            if let distance = displayedFaceDistanceMeters {
                 valueRow("人脸中心—后置相机", String(format: "%.3f m（%.1f cm）", distance, distance * 100))
-                if let position = faceDistance.relativePositionMeters {
+                if let position = displayedFaceRelativePositionMeters {
                     valueRow(
                         "相对坐标 x/y/z",
                         String(format: "%.3f / %.3f / %.3f m", position.x, position.y, position.z)
@@ -100,7 +116,33 @@ struct ContentView: View {
                 faceDistance.stop()
                 faceDistance.start()
             }
+            .disabled(recorder.isBusy)
+
+            if recorder.isBusy {
+                Text("录制期间的人脸距离来自 Recorder 的同一 ARSession，并与后置视频、ARKit 和 IMU 写入同一 session。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private var displayedFaceDistanceMeters: Double? {
+        recorder.isBusy ? recorder.liveFaceDistanceMeters : faceDistance.distanceMeters
+    }
+
+    private var displayedFaceRelativePositionMeters: SIMD3<Float>? {
+        recorder.isBusy
+            ? recorder.liveFaceRelativePositionMeters
+            : faceDistance.relativePositionMeters
+    }
+
+    private var displayedFaceStatusMessage: String {
+        if recorder.isBusy {
+            return recorder.liveFaceDistanceMeters == nil
+                ? "Recorder 正在等待人脸跟踪…"
+                : "Recorder 同步人脸测距中"
+        }
+        return faceDistance.statusMessage
     }
 
     @ViewBuilder
@@ -216,6 +258,10 @@ struct ContentView: View {
                     .monospacedDigit()
             }
 
+            if recorder.isBusy {
+                rearCameraPreview
+            }
+
             HStack {
                 Button {
                     recorder.start(
@@ -253,6 +299,46 @@ struct ContentView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private var rearCameraPreview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                Color.black
+
+                if let previewImage = recorder.rearCameraPreviewImage {
+                    Image(uiImage: previewImage)
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    VStack(spacing: 8) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("正在等待后置摄像头画面…")
+                            .font(.footnote)
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 240)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(alignment: .topLeading) {
+                if recorder.state == .recording {
+                    Label("REC", systemImage: "circle.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(.red)
+                        .padding(8)
+                }
+            }
+
+            Text("后置摄像头实时取景（约 10 fps，仅用于构图；原始 ARFrame 仍按完整采集流程保存）。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("后置摄像头实时取景")
     }
 
     @ViewBuilder

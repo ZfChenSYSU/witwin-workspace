@@ -1,6 +1,6 @@
 # 阶段 1：`w_geo` 仿真科学假设验证
 
-本目录是依据[《前置深度增强的科研项目待办与验证计划》](../../../../../current/project/前置深度增强的科研项目待办与验证计划.md)重新设计并实际完成的独立实验。正式求解固定 `max_bounces=3`，使用当前锁定的 WiTwin 环境和 DrJit 反射场后端；既有 `pipelines/witwin/experiments/whd_4_3` 实验没有被修改。
+本目录是依据[《研究设计与验证标准》](../../../../../current/project/研究设计与验证标准.md)重新设计并实际完成的独立实验。正式求解固定 `max_bounces=3`，使用当前锁定的 WiTwin 环境和 DrJit 反射场后端；既有 `pipelines/witwin/experiments/whd_4_3` 实验没有被修改。
 
 ## 一键复现
 

@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 enum SessionIntegrityValidator {
     static let requiredFiles = [
@@ -43,10 +44,11 @@ enum SessionIntegrityValidator {
         )
         let face = try inspectFaces(
             directory.appendingPathComponent("face_anchors.csv"),
+            ar: ar,
             errors: &errors,
             warnings: &warnings
         )
-        let eventCount = try inspectEvents(
+        let events = try inspectEvents(
             directory.appendingPathComponent("events.csv"),
             errors: &errors
         )
@@ -104,7 +106,7 @@ enum SessionIntegrityValidator {
                 faceAnchorSampleCount: face.sampleCount,
                 faceTrackedSampleCount: face.trackedCount,
                 faceTrackedRatio: face.trackedRatio,
-                eventCount: eventCount,
+                eventCount: events.count,
                 udpPacketCount: udp.packetCount,
                 udpSuccessfulPacketCount: udp.successfulPacketCount,
                 udpFailedPacketCount: udp.failedPacketCount,
@@ -133,6 +135,8 @@ enum SessionIntegrityValidator {
         var videoCount = 0
         var droppedCount = 0
         var trackingStates: [String: Int] = [:]
+        var timestampsByFrameID: [Int: Double] = [:]
+        var cameraPositionsByFrameID: [Int: SIMD3<Double>] = [:]
 
         for (index, row) in rows.data.enumerated() {
             guard row.count == rows.header.count else {
@@ -147,6 +151,11 @@ enum SessionIntegrityValidator {
             if UInt64(row[1]) == nil {
                 errors.append("ar_frames.csv 第 \(index + 2) 行统一手机时钟无效。")
             }
+            guard let currentFrameID = Int(row[2]), currentFrameID == index else {
+                errors.append("ar_frames.csv 第 \(index + 2) 行 frame_id 不是零基连续编号。")
+                continue
+            }
+            timestampsByFrameID[currentFrameID] = timestamp
 
             if row[5] == "true" {
                 videoCount += 1
@@ -160,6 +169,10 @@ enum SessionIntegrityValidator {
                 return !value.isFinite
             }) {
                 errors.append("ar_frames.csv 第 \(index + 2) 行矩阵或内参包含无效数值。")
+            } else if let x = Double(row[9]),
+                      let y = Double(row[13]),
+                      let z = Double(row[17]) {
+                cameraPositionsByFrameID[currentFrameID] = SIMD3(x, y, z)
             }
             trackingStates[row[33], default: 0] += 1
         }
@@ -190,7 +203,9 @@ enum SessionIntegrityValidator {
             droppedFrameCount: droppedCount,
             duration: duration(timestamps),
             maximumGap: maximumGap,
-            trackingStates: trackingStates
+            trackingStates: trackingStates,
+            timestampsByFrameID: timestampsByFrameID,
+            cameraPositionsByFrameID: cameraPositionsByFrameID
         )
     }
 
@@ -267,6 +282,7 @@ enum SessionIntegrityValidator {
 
     private static func inspectFaces(
         _ url: URL,
+        ar: ARInspection,
         errors: inout [String],
         warnings: inout [String]
     ) throws -> FaceInspection {
@@ -274,8 +290,8 @@ enum SessionIntegrityValidator {
             return .empty
         }
         let rows = try CSVRows.read(url)
-        guard rows.header.count == 22 else {
-            errors.append("face_anchors.csv 表头列数不是预期的 22。")
+        guard rows.header.count == 23 else {
+            errors.append("face_anchors.csv 表头列数不是预期的 23。")
             return .empty
         }
 
@@ -294,14 +310,45 @@ enum SessionIntegrityValidator {
             if UInt64(row[1]) == nil {
                 errors.append("face_anchors.csv 第 \(index + 2) 行统一手机时钟无效。")
             }
-            if row[4] == "true" {
+            guard let associatedFrameID = Int(row[2]),
+                  let arTimestamp = ar.timestampsByFrameID[associatedFrameID],
+                  let cameraPosition = ar.cameraPositionsByFrameID[associatedFrameID] else {
+                errors.append("face_anchors.csv 第 \(index + 2) 行无法关联有效 ARFrame。")
+                continue
+            }
+            if let timestamp = Double(row[0]), abs(timestamp - arTimestamp) > 1e-6 {
+                errors.append("face_anchors.csv 第 \(index + 2) 行 frame_id 与时间戳不一致。")
+            }
+            let isTracked = row[4] == "true"
+            if isTracked {
                 trackedCount += 1
             }
-            if row[6..<22].contains(where: {
+            if row[7..<23].contains(where: {
                 guard let value = Double($0) else { return true }
                 return !value.isFinite
             }) {
                 errors.append("face_anchors.csv 第 \(index + 2) 行变换矩阵无效。")
+                continue
+            }
+            let facePosition = SIMD3(
+                Double(row[10]) ?? .nan,
+                Double(row[14]) ?? .nan,
+                Double(row[18]) ?? .nan
+            )
+            let computedDistance = simd_distance(facePosition, cameraPosition)
+            if isTracked {
+                guard let recordedDistance = Double(row[6]),
+                      recordedDistance.isFinite,
+                      recordedDistance > 0 else {
+                    errors.append("face_anchors.csv 第 \(index + 2) 行缺少有效人脸距离。")
+                    continue
+                }
+                if abs(recordedDistance - computedDistance) > 1e-6 {
+                    errors.append("face_anchors.csv 第 \(index + 2) 行人脸距离与位姿不一致。")
+                }
+            } else if !row[6].isEmpty,
+                      (Double(row[6])?.isFinite != true) {
+                errors.append("face_anchors.csv 第 \(index + 2) 行人脸距离无效。")
             }
         }
 
@@ -320,9 +367,9 @@ enum SessionIntegrityValidator {
     private static func inspectEvents(
         _ url: URL,
         errors: inout [String]
-    ) throws -> Int {
+    ) throws -> EventInspection {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            return 0
+            return .empty
         }
         let rows = try CSVRows.read(url)
         let eventTypes = Set(rows.data.compactMap { $0.count > 2 ? $0[2] : nil })
@@ -332,7 +379,10 @@ enum SessionIntegrityValidator {
         if !eventTypes.contains("session_stopped") {
             errors.append("events.csv 缺少 session_stopped。")
         }
-        return rows.data.count
+        if eventTypes.contains("arkit_interrupted") {
+            errors.append("采集期间 ARKit 会话发生中断，视频/位姿时间轴不完整。")
+        }
+        return EventInspection(count: rows.data.count)
     }
 
     private static func inspectUDP(
@@ -499,6 +549,8 @@ private struct ARInspection {
     let duration: Double
     let maximumGap: Double
     let trackingStates: [String: Int]
+    let timestampsByFrameID: [Int: Double]
+    let cameraPositionsByFrameID: [Int: SIMD3<Double>]
 
     var missingRate: Double {
         guard frameCount > 0 else { return 1 }
@@ -511,8 +563,16 @@ private struct ARInspection {
         droppedFrameCount: 0,
         duration: 0,
         maximumGap: 0,
-        trackingStates: [:]
+        trackingStates: [:],
+        timestampsByFrameID: [:],
+        cameraPositionsByFrameID: [:]
     )
+}
+
+private struct EventInspection {
+    let count: Int
+
+    static let empty = EventInspection(count: 0)
 }
 
 private struct MotionInspection {

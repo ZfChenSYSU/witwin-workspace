@@ -5,7 +5,7 @@
 关联文档：
 
 - [iPhone 11 Pro 多模态采集与 SLAM 建模工程交接](../IPHONE_11_PRO_IMPLEMENTATION_CONTEXT.md)
-- [前置深度增强的科研项目待办与验证计划](../../../../current/project/前置深度增强的科研项目待办与验证计划.md)
+- [研究设计与验证标准](../../../../current/project/研究设计与验证标准.md)
 - [iOS Recorder 说明](../../../../../apps/ios-recorder/README.md)
 - [P2 UDP 跨端核对报告](../../../integration/2026-07/IPHONE_11_PRO_P2_UDP_CROSSCHECK_2026-07-30.md)
 

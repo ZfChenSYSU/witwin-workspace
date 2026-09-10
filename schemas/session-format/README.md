@@ -1,6 +1,6 @@
-# Session Format v1.3
+# Session Format v1.4
 
-本目录是 iOS、CSI Linux 和 WSL/WiTwin 三端共享的数据契约。任何不向后兼容的
+本目录是 iOS、CSI Linux 和服务器/WiTwin 三端共享的数据契约。任何不向后兼容的
 字段或二进制格式修改，都必须提升协议版本并先合入 `main`。
 
 跨分支集成状态统一记录在 [`docs/current/branches/main.md`](../../docs/current/branches/main.md)。本 README 只描述当前 schema 的技术语义。
@@ -44,6 +44,12 @@ Schema 1.3.0 增加 `source` 以及 `capture.video`、`capture.arkit`、
 `capture.motion` 机器可读语义，且修正 `video_frame_id`：只有真正写入 MOV 的
 样本才分配连续编号，未写入的 ARFrame 使用 `-1`。解析器仍必须读取既有 1.2.0
 session，并把缺少的新语义报告为兼容性警告，而不是自行猜测。
+
+Schema 1.4.0 为 `face_anchors.csv` 增加逐样本 `face_distance_m`，并要求
+`frame_id` 与同时间戳 ARFrame 严格对应。录制期间的后置视频、前置人脸跟踪和
+前台人脸距离统一由 Recorder 的同一个 ARSession 提供，避免双 ARSession 导致
+视频/位姿中断。1.3.0 及更早 session 仍可读取，但没有直接距离字段时只能根据
+同时间戳相机与人脸位姿派生。
 
 ## 版本原则
 

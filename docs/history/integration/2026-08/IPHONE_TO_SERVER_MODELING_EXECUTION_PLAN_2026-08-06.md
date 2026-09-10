@@ -14,10 +14,10 @@ Git 工程目录：`/root/nfs/chenzhf/witwin/repository`
 3. 下一步按什么顺序推进，才能尽快得到第一个可验证的米制房间模型。
 
 本文不替代现有状态文档。当前能力边界仍以
-[`COLMAP_CAPABILITY_BOUNDARY_2026-08-06.md`](COLMAP_CAPABILITY_BOUNDARY_2026-08-06.md)、
+[`COLMAP_CAPABILITY_BOUNDARY_2026-08-06.md`](../../environment/server/2026-08/COLMAP_CAPABILITY_BOUNDARY_2026-08-06.md)、
 [`IPHONE_SESSION_IMPORT_REQUIREMENTS_2026-08-06.md`](IPHONE_SESSION_IMPORT_REQUIREMENTS_2026-08-06.md)、
-[`work-wsl-witwin`](../branches/work-wsl-witwin.md) 和
-[`work-ios-recorder`](../branches/work-ios-recorder.md) 为准。
+[`work-wsl-witwin`](../../../current/branches/work-wsl-witwin.md) 和
+[`work-ios-recorder`](../../../current/branches/work-ios-recorder.md) 为准。
 
 核心结论如下：
 
